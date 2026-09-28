@@ -37,6 +37,17 @@ import { db, memoryStore } from "@/lib/server";
 
 export const maxDuration = 60;
 
+/** What the customer sees when a turn fails; the cause is logged either way. */
+function chatErrorMessage(err: unknown): string {
+  const busy = aiBusyMessage(err);
+  if (busy) {
+    console.warn("[chat] model provider rate limit", (err as Error)?.message?.slice(0, 200));
+    return busy;
+  }
+  console.error("[chat] stream error", err);
+  return isAppError(err) ? err.message : "Nia had trouble answering. Please try again.";
+}
+
 const Body = z.object({
   slug: z.string().min(1).max(64),
   conversationId: z.string().uuid().nullish(),
@@ -91,15 +102,7 @@ export async function POST(req: Request) {
   const ctx = { db: db(), store, merchant, customer, conversation: conv, channel: "web" as const };
 
   const stream = createUIMessageStream<NiaUIMessage>({
-    onError: (err) => {
-      const busy = aiBusyMessage(err);
-      if (busy) {
-        console.warn("[chat] model provider rate limit", (err as Error).message?.slice(0, 200));
-        return busy;
-      }
-      console.error("[chat] stream error", err);
-      return isAppError(err) ? err.message : "Nia had trouble answering. Please try again.";
-    },
+    onError: chatErrorMessage,
     execute: async ({ writer }) => {
       const messageId = newId();
       writer.write({ type: "start", messageId, messageMetadata: { conversationId: conv.id, channel: "web", createdAt: new Date().toISOString() } });
@@ -154,6 +157,8 @@ export async function POST(req: Request) {
         result.toUIMessageStream<NiaUIMessage>({
           sendStart: false,
           sendFinish: false,
+          // Errors from the model call itself (e.g. provider rate limits) surface here.
+          onError: chatErrorMessage,
           onFinish: ({ responseMessage }) => {
             responseParts = responseMessage.parts;
             resolveParts();
