@@ -4,6 +4,8 @@
  *
  * Set SEED_OWNER_EMAIL=you@example.com to make that account the OWNER of the
  * demo stores, so you can sign in and open their dashboards (and Judge Mode).
+ * Add SEED_OWNER_TELEGRAM_ID=<your Telegram user id> to own them when signing in
+ * with Telegram (the id is in telegram_identities once you have messaged the bot).
  * No customers, orders, conversations or memories are seeded — those only
  * come from real use, so every metric and memory you see is genuine.
  */
@@ -24,11 +26,20 @@ if (!url) {
 const { db, close } = createPostgresDb(url, { max: 1 });
 
 try {
-  const ownerEmail = process.env.SEED_OWNER_EMAIL?.trim().toLowerCase();
+  const ownerEmail = process.env.SEED_OWNER_EMAIL?.trim().toLowerCase() || null;
+  // Optional: the owner's Telegram user id, so "Continue with Telegram" signs in as the owner.
+  const ownerTelegramId = Number(process.env.SEED_OWNER_TELEGRAM_ID) || null;
   let ownerId: string | null = null;
-  if (ownerEmail) {
-    const [existing] = await db.select().from(users).where(eq(users.email, ownerEmail));
-    ownerId = existing?.id ?? (await db.insert(users).values({ email: ownerEmail }).returning())[0]!.id;
+  if (ownerEmail || ownerTelegramId) {
+    let [existing] = ownerTelegramId ? await db.select().from(users).where(eq(users.telegramUserId, ownerTelegramId)) : [];
+    if (!existing && ownerEmail) [existing] = await db.select().from(users).where(eq(users.email, ownerEmail));
+    if (existing) {
+      const patch = { ...(ownerEmail && !existing.email ? { email: ownerEmail } : {}), ...(ownerTelegramId && !existing.telegramUserId ? { telegramUserId: ownerTelegramId } : {}) };
+      if (Object.keys(patch).length) await db.update(users).set(patch).where(eq(users.id, existing.id));
+      ownerId = existing.id;
+    } else {
+      ownerId = (await db.insert(users).values({ email: ownerEmail, telegramUserId: ownerTelegramId }).returning())[0]!.id;
+    }
   }
 
   for (const key of Object.keys(DEMO_TEMPLATES) as DemoTemplateKey[]) {
