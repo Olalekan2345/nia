@@ -34,6 +34,7 @@ Nia: multi-merchant AI shopping & service assistant (web chat + Telegram) with d
 - Decision memory (`packages/ai/src/decisions.ts`): asked questions are appended to the stored assistant text ("Nia asked: …"); a tapped option becomes a memory directly (no model call); typed answers go to extraction with the question as context. Policy keeps OCCASION/RELATIONSHIP_CONTEXT even when tagged this_order_only.
 - Photos: dashboard upload → `/api/media` (sharp, ≤1600px JPEG, bytea in `media` table, migration 0003). Demo stock photos (Burst) in `apps/web/public/stock` with credits.json; the seed backfills empty image lists.
 - Live-verified locally (real Groq + Walrus Mainnet): 3 decision answers stored and shown on the market profile + "For you".
+- **Deployed 2026-09-28** (commit b24f38a): migration 0003 + seed applied to Neon (market row, stock photos on 12/14 demo products); https://nia-pearl.vercel.app/market live.
 
 ## Status (2026-09-28)
 Verified with real credentials (2026-09-28): `pnpm walrus:health` (mainnet), `pnpm test:walrus`, `pnpm test:ai` (Qwen extraction), and the flagship browser flow on Mainnet + Groq: preferences → 3 stored receipts → new chat recall → Yaba correction (supersedes, keeps Lekki as history) → new chat answers “Lekki before, Yaba now” → Memory Passport.
