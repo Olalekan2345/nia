@@ -27,7 +27,7 @@ import {
   Wrench,
 } from "lucide-react";
 import { Mascot, buttonClasses, cn } from "@nia/ui";
-import { NiaLogo, WalrusChip } from "@/components/brand";
+import { MascotArt, NiaLogo, WalrusChip } from "@/components/brand";
 
 export default function LandingPage() {
   return (
@@ -132,13 +132,16 @@ function Hero() {
 function HeroPhone() {
   return (
     <figure className="relative mx-auto w-full max-w-[380px]" aria-label="Example conversation with Nia">
-      <div className="absolute -top-10 -left-8 hidden sm:block">
+      <div className="pointer-events-none absolute -top-24 -right-32 hidden rotate-6 xl:block 2xl:-right-44">
+        <MascotArt size={240} priority className="size-[200px] 2xl:size-[240px]" />
+      </div>
+      <div className="absolute -top-10 -left-8 z-20 hidden sm:block xl:hidden">
         <Mascot size={96} state="greeting" decorative />
       </div>
-      <div className="rounded-[2.25rem] border border-border bg-surface p-2 shadow-float">
+      <div className="relative z-10 rounded-[2.25rem] border border-border bg-surface p-2 shadow-float">
         <div className="overflow-hidden rounded-[1.8rem] border border-border bg-background">
           <div className="flex items-center gap-3 border-b border-border bg-surface px-4 py-3">
-            <span className="grid size-9 place-items-center rounded-xl bg-[#0F8F8A] text-sm font-bold text-white" aria-hidden="true">
+            <span className="grid size-9 place-items-center rounded-xl bg-accent text-sm font-bold text-accent-foreground" aria-hidden="true">
               AL
             </span>
             <div className="min-w-0">
@@ -277,10 +280,10 @@ function MemoryThatHelps() {
 
 function Channels() {
   return (
-    <section className="bg-graphite-950 py-20 text-white sm:py-24">
+    <section className="bg-ink-950 py-20 text-white sm:py-24">
       <Container className="grid gap-12 lg:grid-cols-2 lg:items-center">
         <div>
-          <p className="text-sm font-semibold text-tide-300">Web + Telegram</p>
+          <p className="text-sm font-semibold text-aqua-300">Web + Telegram</p>
           <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-balance sm:text-4xl">One customer. Every channel. One memory.</h2>
           <p className="mt-4 text-lg leading-relaxed text-white/70">
             A preference shared in web chat is there when the same customer messages the shop’s Telegram bot. Identities are linked deliberately with a one-time link — never guessed from display names.
@@ -304,8 +307,8 @@ function Channels() {
             <p className="flex items-center gap-2 text-sm font-semibold text-white/70">
               <Store className="size-4" aria-hidden="true" /> Web chat · Monday
             </p>
-            <p className="mt-4 rounded-2xl rounded-br-md bg-white px-3.5 py-2.5 text-sm text-graphite-950">I normally buy Medium and I like darker colours.</p>
-            <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-mint-500/15 px-2.5 py-1 text-xs font-semibold text-mint-300">
+            <p className="mt-4 rounded-2xl rounded-br-md bg-white px-3.5 py-2.5 text-sm text-ink-900">I normally buy Medium and I like darker colours.</p>
+            <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-aqua-400/15 px-2.5 py-1 text-xs font-semibold text-aqua-300">
               <BadgeCheck className="size-3.5" aria-hidden="true" /> 2 things remembered
             </p>
           </div>
@@ -479,7 +482,7 @@ function DashboardPreview() {
                 <p className="text-xs font-semibold text-muted-foreground">Orders over time</p>
                 <div className="mt-4 flex h-32 items-end gap-2" aria-hidden="true">
                   {bars.map((h, i) => (
-                    <div key={i} className="flex-1 rounded-t-md bg-tide-500/80" style={{ height: `${h}%` }} />
+                    <div key={i} className="flex-1 rounded-t-md bg-periwinkle-500/80" style={{ height: `${h}%` }} />
                   ))}
                 </div>
               </div>

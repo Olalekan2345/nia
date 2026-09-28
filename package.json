@@ -27,7 +27,7 @@
     "telegram:webhook": "pnpm --filter @nia/bot webhook",
     "walrus:health": "tsx packages/memory/scripts/health.ts",
     "walrus:restore": "tsx packages/memory/scripts/restore.ts",
-    "brand:icons": "tsx scripts/render-brand-icons.ts",
+    "brand:icons": "tsx scripts/brand-assets.ts",
     "db:reset": "tsx packages/database/scripts/reset.ts",
     "test:ai": "cross-env NIA_AI_INTEGRATION=1 vitest run packages/ai/test/ai.integration.test.ts"
   },
@@ -43,6 +43,7 @@
     "eslint-config-next": "16.3.6",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^16.4.0",
+    "sharp": "0.35.5",
     "tsx": "^4.23.15",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.0",

@@ -35,7 +35,7 @@ function hashString(s: string): number {
   return h >>> 0;
 }
 
-const FALLBACKS = ["#0A7A89", "#2F54EB", "#177A53", "#9A5A06", "#6E1F33", "#27306B"];
+const FALLBACKS = ["#5352E0", "#086A82", "#2A2670", "#9A5A06", "#6E1F33", "#177A53"]; // brand-leaning, all dark enough for white initials
 
 type Motif = "ankara" | "adire" | "lace" | "stripes" | "garment" | "jar" | "bottle" | "bread" | "cake" | "tape" | "service" | "plain";
 

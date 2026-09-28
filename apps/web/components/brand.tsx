@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Mascot, cn } from "@nia/ui";
 
@@ -19,5 +20,20 @@ export function WalrusChip({ className, label = "Walrus Memory" }: { className?:
       </svg>
       {label}
     </span>
+  );
+}
+
+/** The full mascot artwork, for large placements (hero, feature panels). Small sizes use <Mascot>. */
+export function MascotArt({ size, className, priority = false }: { size: number; className?: string; priority?: boolean }) {
+  return (
+    <Image
+      src="/brand/nia-art-1200.webp"
+      alt="Nia, the walrus shop assistant, winking and waving"
+      width={size}
+      height={size}
+      sizes={`${size}px`}
+      priority={priority}
+      className={cn("nia-holo-border rounded-[2rem] shadow-float", className)}
+    />
   );
 }

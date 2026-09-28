@@ -3,30 +3,37 @@
 
 /*
  * Nia design tokens — see /brand.md.
- * Graphite + warm off-white foundation, tide (aqua/cyan) accent, mint for
- * memory success, cobalt for info. All text pairs are checked for WCAG AA.
+ * Colours come from the mascot artwork: deep indigo ink, periwinkle accent,
+ * aqua (the walrus) for memory, lavender and blush for decoration only.
+ * Text pairs are checked for WCAG AA (scripts/check-contrast.ts).
  */
 
 @theme {
-  --color-graphite-950: #0b0e13;
-  --color-graphite-900: #11151c;
-  --color-graphite-800: #1b2230;
-  --color-graphite-700: #2a3342;
-  --color-graphite-500: #5b6472;
-  --color-graphite-300: #c3cad4;
-  --color-paper: #f7f6f2;
-  --color-tide-50: #ecfafb;
-  --color-tide-100: #d3f3f6;
-  --color-tide-200: #a8e6ed;
-  --color-tide-300: #6fd6e2;
-  --color-tide-400: #2ec4d6;
-  --color-tide-500: #0fa3b5;
-  --color-tide-600: #0a7a89;
-  --color-tide-700: #086a77;
-  --color-mint-100: #ddf7ee;
-  --color-mint-300: #8fe3c7;
-  --color-mint-500: #2fbf8f;
-  --color-cobalt-500: #2f54eb;
+  --color-ink-950: #0f0e26;
+  --color-ink-900: #1b1a4b;
+  --color-ink-800: #2a2670;
+  --color-ink-500: #5a5980;
+  --color-ink-300: #c9c8e6;
+  --color-periwinkle-50: #eef1ff;
+  --color-periwinkle-100: #dfe5ff;
+  --color-periwinkle-200: #bfccfe;
+  --color-periwinkle-300: #9fb8fc;
+  --color-periwinkle-400: #7c8ffb;
+  --color-periwinkle-500: #6f77fd;
+  --color-periwinkle-600: #5352e0;
+  --color-periwinkle-700: #4338b8;
+  --color-aqua-50: #ecfcfe;
+  --color-aqua-100: #d2f7fc;
+  --color-aqua-200: #a6eef8;
+  --color-aqua-300: #6bdee6;
+  --color-aqua-400: #51e0f6;
+  --color-aqua-600: #0b7f9c;
+  --color-aqua-700: #086a82;
+  --color-lavender-100: #f3e8fb;
+  --color-lavender-200: #e6cdf6;
+  --color-lavender-300: #ce93e3;
+  --color-blush-100: #fde8f3;
+  --color-blush-300: #f5b3dc;
 
   --ease-out-soft: cubic-bezier(0, 0, 0.2, 1);
   --ease-in-soft: cubic-bezier(0.4, 0, 1, 1);
@@ -64,19 +71,19 @@
 
 :root {
   color-scheme: light;
-  --background: #f7f6f2;
-  --foreground: #0e1116;
+  --background: #f6f5fd;
+  --foreground: #1b1a4b;
   --surface: #ffffff;
-  --surface-2: #f0efea;
-  --border: #e5e3dc;
-  --muted-foreground: #5b6472; /* 5.5:1 on background */
-  --primary: #11151c;
+  --surface-2: #efeefb;
+  --border: #e2e0f3;
+  --muted-foreground: #58577e;
+  --primary: #2a2670;
   --primary-foreground: #ffffff;
-  --accent: #0a7a89; /* 5.0:1 with white */
+  --accent: #5352e0;
   --accent-foreground: #ffffff;
-  --accent-strong: #086a77; /* accent text on light surfaces */
-  --accent-soft: #e3f6f8;
-  --ring: #0a7a89;
+  --accent-strong: #4338b8; /* accent text on light surfaces */
+  --accent-soft: #ecebff;
+  --ring: #5352e0;
   --success: #177a53;
   --success-soft: #e3f5ec;
   --warning: #9a5a06;
@@ -85,28 +92,32 @@
   --danger-soft: #fdecec;
   --info: #2f54eb;
   --info-soft: #eef2ff;
-  --memory: #177a53;
-  --memory-soft: #e1f6ee;
-  --chart-1: #0b8fa1; /* validated: chroma, lightness band, 3:1 on light surface */
-  --shadow-float: 0 1px 2px rgb(17 21 28 / 0.04), 0 8px 24px -8px rgb(17 21 28 / 0.12);
+  --memory: #086a82; /* aqua, dark enough for text */
+  --memory-soft: #dcf6fb;
+  --chart-1: #5352e0;
+  --glow-aqua: #6bdee6;
+  --glow-periwinkle: #9fb8fc;
+  --glow-lavender: #ce93e3;
+  --glow-blush: #f5b3dc;
+  --shadow-float: 0 1px 2px rgb(27 26 75 / 0.05), 0 10px 28px -10px rgb(83 82 224 / 0.22);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --background: #0b0e13;
-    --foreground: #e8ebef;
-    --surface: #12161d;
-    --surface-2: #181d26;
-    --border: #252c38;
-    --muted-foreground: #9aa3b2;
-    --primary: #e8ebef;
-    --primary-foreground: #0b0e13;
-    --accent: #3cc7d7;
-    --accent-foreground: #04222a;
-    --accent-strong: #5dd6e3;
-    --accent-soft: #0e2a31;
-    --ring: #5dd6e3;
+    --background: #0f0e26;
+    --foreground: #eeedff;
+    --surface: #17163a;
+    --surface-2: #1f1e4a;
+    --border: #2d2c60;
+    --muted-foreground: #a9a8d6;
+    --primary: #eeedff;
+    --primary-foreground: #1b1a4b;
+    --accent: #9fa4ff;
+    --accent-foreground: #14133a;
+    --accent-strong: #b8bcff;
+    --accent-soft: #25245a;
+    --ring: #b8bcff;
     --success: #4fd39f;
     --success-soft: #0f2a21;
     --warning: #f0b45b;
@@ -115,10 +126,14 @@
     --danger-soft: #2e1416;
     --info: #8ea5ff;
     --info-soft: #161d3a;
-    --memory: #4fd39f;
-    --memory-soft: #0f2a21;
-    --chart-1: #1fa2b4; /* validated against the dark surface */
-    --shadow-float: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px -12px rgb(0 0 0 / 0.6);
+    --memory: #6fe3f2;
+    --memory-soft: #0d2f3b;
+    --chart-1: #9fa4ff;
+    --glow-aqua: #1f7f95;
+    --glow-periwinkle: #3b44a8;
+    --glow-lavender: #6b3f8c;
+    --glow-blush: #7a3a66;
+    --shadow-float: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px -12px rgb(0 0 0 / 0.65);
   }
 }
 
@@ -165,110 +180,117 @@
 }
 
 .nia-select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235b6472' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2358577e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
 }
 
-/* Soft brand wash — used sparingly behind hero and home surfaces. */
+/* Soft brand wash — the artwork's sky, aqua, lavender and blush, behind hero and home surfaces. */
 .nia-wash {
   background:
-    radial-gradient(60% 50% at 20% 10%, color-mix(in oklab, var(--color-tide-200) 45%, transparent), transparent 70%),
-    radial-gradient(50% 45% at 85% 20%, color-mix(in oklab, var(--color-mint-300) 30%, transparent), transparent 70%),
+    radial-gradient(55% 45% at 12% 8%, color-mix(in oklab, var(--glow-periwinkle) 42%, transparent), transparent 70%),
+    radial-gradient(45% 40% at 88% 14%, color-mix(in oklab, var(--glow-lavender) 32%, transparent), transparent 70%),
+    radial-gradient(50% 40% at 50% 95%, color-mix(in oklab, var(--glow-aqua) 22%, transparent), transparent 70%),
+    radial-gradient(35% 30% at 75% 70%, color-mix(in oklab, var(--glow-blush) 20%, transparent), transparent 70%),
     var(--background);
+}
+
+/* Holographic hairline for featured cards (the visor's iridescence). */
+.nia-holo-border {
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--surface), var(--surface)) padding-box,
+    linear-gradient(120deg, var(--glow-aqua), var(--glow-periwinkle), var(--glow-lavender), var(--glow-blush)) border-box;
 }
 
 /* ─────────────────────────────── Mascot ─────────────────────────────── */
 
-.nia-mascot-wrap svg {
+.nia-mascot {
+  border-radius: 9999px;
+  padding: var(--nia-ring, 3px);
+  isolation: isolate;
+}
+.nia-mascot-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  overflow: hidden;
+  z-index: -1;
+}
+.nia-mascot-ring::before {
+  content: "";
+  position: absolute;
+  inset: -25%;
+  background: conic-gradient(from 0deg, #6bdee6, #9fb8fc, #ce93e3, #f5b3dc, #9fb8fc, #6bdee6);
+}
+.nia-mascot[data-state="warning"] .nia-mascot-ring::before {
+  background: conic-gradient(#f0b45b, #f5d08a, #f0b45b);
+}
+.nia-mascot-img {
   display: block;
   width: 100%;
   height: 100%;
-  overflow: visible;
+  border-radius: 9999px;
+  object-fit: cover;
+  background: var(--surface-2);
 }
-
-.nia-mascot-wrap .nia-eyes,
-.nia-mascot-wrap .nia-badge {
-  transform-box: fill-box;
-  transform-origin: center;
+.nia-mascot[data-state="privacy"] .nia-mascot-img {
+  filter: saturate(0.55);
 }
+.nia-mascot-badge {
+  position: absolute;
+  right: -2%;
+  bottom: -2%;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  border: 2px solid var(--surface);
+  color: #fff;
+}
+.nia-mascot-badge svg {
+  width: 62%;
+  height: 62%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.nia-mascot-badge[data-kind="memory"] { background: var(--accent); }
+.nia-mascot-badge[data-kind="memory"] svg { fill: currentColor; stroke-width: 1; }
+.nia-mascot-badge[data-kind="success"] { background: var(--success); }
+.nia-mascot-badge[data-kind="neutral"] { background: var(--primary); color: var(--primary-foreground); }
+.nia-mascot-badge[data-kind="warning"] { background: #b86a08; }
 
 @media (prefers-reduced-motion: no-preference) {
-  .nia-mascot-wrap .nia-body-group {
-    animation: nia-breathe 4.8s ease-in-out infinite;
-    transform-box: view-box;
-    transform-origin: 120px 208px;
+  .nia-mascot[data-state="thinking"] .nia-mascot-ring::before {
+    animation: nia-spin 1.4s linear infinite;
   }
-  .nia-mascot-wrap[data-state="idle"] .nia-eyes,
-  .nia-mascot-wrap[data-state="recalling"] .nia-eyes,
-  .nia-mascot-wrap[data-state="thinking"] .nia-eyes {
-    animation: nia-blink 6s ease-in-out infinite;
+  .nia-mascot[data-state="recalling"],
+  .nia-mascot[data-state="remembering"] {
+    animation: nia-glow 1.6s ease-in-out infinite;
   }
-  .nia-mascot-wrap[data-state="greeting"] .nia-flipper-right {
-    animation: nia-wave 1s ease-in-out 2;
-    transform-box: view-box;
-    transform-origin: 182px 156px;
+  .nia-mascot[data-state="greeting"] {
+    animation: nia-bob 1.2s ease-in-out 2;
   }
-  .nia-mascot-wrap .nia-dot {
-    animation: nia-dot 1.2s ease-in-out infinite;
-  }
-  .nia-mascot-wrap .nia-dot-2 {
-    animation-delay: 0.15s;
-  }
-  .nia-mascot-wrap .nia-dot-3 {
-    animation-delay: 0.3s;
-  }
-  .nia-mascot-wrap .nia-ripple {
-    animation: nia-ripple 1.8s ease-out infinite;
-    transform-box: view-box;
-    transform-origin: 120px 120px;
-  }
-  .nia-mascot-wrap .nia-ripple-2 {
-    animation-delay: 0.9s;
-  }
-  .nia-mascot-wrap .nia-scan {
-    animation: nia-scan 1.6s ease-in-out infinite;
-  }
-  .nia-mascot-wrap .nia-badge {
+  .nia-mascot-badge {
     animation: nia-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
-  }
-  .nia-mascot-wrap[data-state="remembering"] .nia-halo,
-  .nia-mascot-wrap[data-state="recalling"] .nia-halo {
-    animation: nia-halo 1.6s ease-in-out infinite;
   }
 }
 
-@keyframes nia-breathe {
-  0%, 100% { transform: translateY(0) scale(1); }
-  50% { transform: translateY(-1.5px) scale(1.012); }
+@keyframes nia-spin {
+  to { transform: rotate(360deg); }
 }
-@keyframes nia-blink {
-  0%, 94%, 100% { transform: scaleY(1); }
-  96% { transform: scaleY(0.12); }
+@keyframes nia-glow {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--glow-lavender) 0%, transparent); }
+  50% { box-shadow: 0 0 0 4px color-mix(in oklab, var(--glow-lavender) 45%, transparent), 0 0 18px 2px color-mix(in oklab, var(--glow-aqua) 45%, transparent); }
 }
-@keyframes nia-wave {
-  0%, 100% { transform: rotate(0deg); }
-  50% { transform: rotate(-16deg); }
-}
-@keyframes nia-dot {
-  0%, 100% { opacity: 0.25; transform: translateY(0); }
-  50% { opacity: 1; transform: translateY(-3px); }
-}
-@keyframes nia-ripple {
-  0% { opacity: 0.7; transform: scale(0.78); }
-  100% { opacity: 0; transform: scale(1.12); }
-}
-@keyframes nia-scan {
-  0% { transform: translateX(0); opacity: 0; }
-  15% { opacity: 1; }
-  85% { opacity: 1; }
-  100% { transform: translateX(96px); opacity: 0; }
+@keyframes nia-bob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  30% { transform: translateY(-3px) rotate(-3deg); }
+  60% { transform: translateY(0) rotate(2deg); }
 }
 @keyframes nia-pop {
   from { opacity: 0; transform: scale(0.4); }
   to { opacity: 1; transform: scale(1); }
-}
-@keyframes nia-halo {
-  0%, 100% { opacity: 0.6; }
-  50% { opacity: 1; }
 }
 
 /* Memory ripple used on chips when a memory is confirmed stored. */

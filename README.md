@@ -5,7 +5,7 @@ Nia is an AI shopping and service assistant for independent businesses. It sells
 > Customer: “I need the same 6 yards I bought last time, but blue.”
 > Nia: “Your last fabric order was 6 yards of emerald Ankara. I can keep the same quantity, but switch to blue. Delivery to Lekki again?”
 
-<p align="center"><img src="apps/web/public/brand/mascot-states.png" width="520" alt="The Nia walrus mascot in its nine states"></p>
+<p align="center"><img src="apps/web/public/brand/nia-art-640.webp" width="320" alt="Nia, the walrus shop assistant, winking and waving"></p>
 
 - **For merchants** — fashion & fabric sellers, salons, bakeries, repair shops, electronics, homeware… anyone who sells products *or* services and has returning customers.
 - **For their customers** — a warm assistant that knows your size, your usual delivery area and what you bought last time, and lets you see, correct or forget any of it.
@@ -108,7 +108,7 @@ In production use a real HTTPS webhook: `pnpm telegram:webhook -- set`. See [doc
 | `pnpm typecheck` / `pnpm lint` | TypeScript strict + ESLint |
 | `pnpm walrus:health` / `pnpm walrus:restore -- <namespace>` | Relayer health; admin re-index utility |
 | `pnpm telegram:webhook -- set|info|delete|profile` / `pnpm bot:poll` | Telegram helpers |
-| `pnpm brand:icons` | Regenerate mascot PNGs (Telegram avatar, icons) |
+| `pnpm brand:icons` | Build the mascot, icons, favicon, Telegram avatar and social card from `brand/nia-mascot.*` |
 
 ## Tests
 
