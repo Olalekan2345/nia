@@ -6,3 +6,5 @@ export * from "./conversations";
 export * from "./orchestrator";
 export * from "./services";
 export type * from "./ui-types";
+export * from "./market-tools";
+export * from "./decisions";

@@ -42,6 +42,26 @@ try {
     }
   }
 
+  // Walrus Market: sells nothing itself; gives each shopper a market-level memory space for Nia the guide.
+  const [market] = await db.select().from(merchants).where(eq(merchants.kind, "market"));
+  if (!market) {
+    await db.insert(merchants).values({
+      slug: "market",
+      name: "Walrus Market",
+      kind: "market",
+      businessType: "other",
+      tagline: "Every shop in one place, with Nia to help you choose",
+      accentColor: "#5352e0",
+      currency: "NGN",
+      locale: "en-NG",
+      timezone: "Africa/Lagos",
+      status: "live",
+      onboardingStep: 99,
+      telegramEnabled: false,
+    });
+    console.log("✓ Walrus Market (/market)");
+  }
+
   for (const key of Object.keys(DEMO_TEMPLATES) as DemoTemplateKey[]) {
     const t = DEMO_TEMPLATES[key];
     let [merchant] = await db.select().from(merchants).where(eq(merchants.slug, t.slug));

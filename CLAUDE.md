@@ -14,7 +14,7 @@ Nia: multi-merchant AI shopping & service assistant (web chat + Telegram) with d
 - Docs: `README.md`, `docs/*.md`, `brand.md`.
 
 ## Commands
-`pnpm dev:db` (embedded real Postgres 18, UTF-8, `.data/postgres`, port 54329, db `nia`) · `pnpm db:setup` · `pnpm db:reset` (local only) · `pnpm dev` · `pnpm test` (93 pass, 2 opt-in skipped) · `pnpm test:walrus` · `pnpm test:ai` · `pnpm test:e2e` (own server on port 3310 with NIA_E2E=1, own build dir `.next-e2e`, own database `<dev db>_e2e` prepared by `pnpm db:e2e` — runs beside `pnpm dev` and never touches dev data) · `pnpm lint` · `pnpm typecheck` · `pnpm build`.
+`pnpm dev:db` (embedded real Postgres 18, UTF-8, `.data/postgres`, port 54329, db `nia`) · `pnpm db:setup` · `pnpm db:reset` (local only) · `pnpm dev` · `pnpm test` (108 pass, 2 opt-in skipped) · `pnpm test:walrus` · `pnpm test:ai` · `pnpm test:e2e` (own server on port 3310 with NIA_E2E=1, own build dir `.next-e2e`, own database `<dev db>_e2e` prepared by `pnpm db:e2e` — runs beside `pnpm dev` and never touches dev data) · `pnpm lint` · `pnpm typecheck` · `pnpm build`.
 
 ## Key decisions
 - AI SDK **v7** (`ai@7`, `@ai-sdk/react@4`): `streamText` + `createUIMessageStream` data parts (`data-recall`, `data-memory`, `data-notice`); `stepCountIs`; tools close over a server-built scope. Tool input schemas avoid `format`/`pattern` (Gemini compatibility) and validate ids inside.
@@ -28,10 +28,17 @@ Nia: multi-merchant AI shopping & service assistant (web chat + Telegram) with d
 - **Walrus relayer limit: 60 weighted requests/min per delegate key, 60 s lockout on 429.** Status checks are batched (`getRememberBulkStatus`) and claimed via `walrus_jobs.last_checked_at` (`MEMWAL_STATUS_MIN_INTERVAL_MS`, default 5 s); 429 → process-wide cooldown, never retried. Web chat closes the stream once receipts are pending; durable confirmation runs in `after()`; `refreshPending` settles leftover pending jobs at the start of each turn. The Walrus store is cached on `globalThis` → restart `pnpm dev` after changing `store.ts`.
 - Extraction: `normalizeCandidateType` re-types preference subjects mislabeled PAST_ORDER; `isRecallOnlyQuestion` skips extraction for “What do I normally like?”-style questions.
 
+## Walrus Market (2026-09-28)
+- `/market` (+ `/market/nia`, `/market/compare`, `/market/profile`, `/market/signin`): cross-shop discovery. One merchant row with `kind = "market"` (slug `market`, created by the seed) owns the guide's per-shopper memory namespace; shops are `kind = "shop"`. `/s/market` redirects to `/market`.
+- Guide tools (`packages/ai/src/market-tools.ts`): searchMarket / searchMarketServices (≤3 searches per reply, duplicates refused), compareProducts, askDecision (chips). Tool output is trimmed to keep turns under Groq's free-tier 7K input tokens/min. Every reply's last step is forced to text (`answerOnLastStep`, `MAX_STEPS`).
+- Decision memory (`packages/ai/src/decisions.ts`): asked questions are appended to the stored assistant text ("Nia asked: …"); a tapped option becomes a memory directly (no model call); typed answers go to extraction with the question as context. Policy keeps OCCASION/RELATIONSHIP_CONTEXT even when tagged this_order_only.
+- Photos: dashboard upload → `/api/media` (sharp, ≤1600px JPEG, bytea in `media` table, migration 0003). Demo stock photos (Burst) in `apps/web/public/stock` with credits.json; the seed backfills empty image lists.
+- Live-verified locally (real Groq + Walrus Mainnet): 3 decision answers stored and shown on the market profile + "For you".
+
 ## Status (2026-09-28)
 Verified with real credentials (2026-09-28): `pnpm walrus:health` (mainnet), `pnpm test:walrus`, `pnpm test:ai` (Qwen extraction), and the flagship browser flow on Mainnet + Groq: preferences → 3 stored receipts → new chat recall → Yaba correction (supersedes, keeps Lekki as history) → new chat answers “Lekki before, Yaba now” → Memory Passport.
 Finished & verified locally: landing; storefront (home, shop, product, chat, orders/cart, profile + Memory Passport + Telegram connect, sign-in); chat streaming with cards/receipts/recall chips; dashboard (overview, conversations, customers + detail + owner restore, catalog editors, orders + detail + transitions, bookings, memory explorer with relayer counts, settings incl. knowledge/Telegram/team, judge mode with before/after); onboarding; Telegram webhook + bot CLI; Paystack webhook; health endpoint; docs.
-Verified: 93 unit/integration tests, lint, typecheck (10 packages), `next build`, Playwright critical path (merchant onboarding → product → publish → customer order → cross-tenant 404 → merchant confirm).
+Verified: 108 unit/integration tests, lint, typecheck (10 packages), `next build`, Playwright critical path (merchant onboarding → product → publish → customer order → cross-tenant 404 → merchant confirm).
 
 **Not yet verified:** a real person completing Telegram sign-in on the live site (needs a tap in Telegram), Resend emails (not configured).
 
@@ -49,6 +56,6 @@ Verified: 93 unit/integration tests, lint, typecheck (10 packages), `next build`
 ## Known issues / notes
 - Local dev: earlier local test data was reset with `pnpm db:reset`; e2e runs create test shops (“E2E Linen …”) in the local DB.
 - Rate limits are Postgres fixed windows (fine for one region).
-- Chat image upload not implemented.
+- Chat image upload not implemented (merchant product photo upload is).
 - Observed order patterns (colour/size chosen in 2+ orders) are stored as "Observed from orders" memories after each confirmed order.
 - Recall is skipped for namespaces with no stored records (memoryPresence in orchestrator) to save relayer calls.

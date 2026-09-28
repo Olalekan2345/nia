@@ -4,15 +4,21 @@ import { useState } from "react";
 import Link from "next/link";
 import { CalendarCheck, Check, ExternalLink, Loader2, Minus, PackageCheck, Plus, Search, ShoppingCart } from "lucide-react";
 import { Button, Select, buttonClasses, cn } from "@nia/ui";
-import { formatMoney } from "@nia/shared";
+import { formatMoney, formatPriceRange, type InventoryStatus } from "@nia/shared";
 import type { BookingSummaryData, OrderSummaryData, PaymentStart, ProductCardData, ServiceCardData, SlotData } from "@nia/commerce";
 import type { MemoryReceiptView } from "@nia/ai";
 import { BookingCard, OrderSummaryCard, ProductCard, ServiceCard } from "@/components/commerce/cards";
+import { ProductVisual } from "@/components/commerce/product-visual";
+import { CompareToggle } from "@/components/market/compare-controls";
+import { MarketProductCard } from "@/components/market/market-card";
+import { CompareTable, type CompareProduct } from "@/components/market/compare-table";
 import { ReceiptList } from "./memory-parts";
 import { useReceiptPoll } from "./use-receipt-poll";
 
 export interface ChatActions {
   slug: string;
+  /** Sign-in page for this chat (a shop's, or Walrus Market's). */
+  signInHref: string;
   locale: string;
   timeZone: string;
   signedIn: boolean;
@@ -52,12 +58,16 @@ const PENDING_LABEL: Record<string, string> = {
   recallCustomerMemory: "Recalling from memory",
   recallMerchantMemory: "Checking the shop’s notes",
   forgetCustomerMemory: "Forgetting that",
+  searchMarket: "Searching Walrus Market",
+  searchMarketServices: "Looking at services across shops",
+  compareProducts: "Comparing",
+  askDecision: "Thinking of a question",
 };
 
 export function ToolStatus({ name }: { name: string }) {
   return (
     <p className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground" aria-live="polite">
-      {name === "searchProducts" || name === "searchServices" ? <Search className="size-3.5" aria-hidden="true" /> : <Loader2 className="size-3.5 motion-safe:animate-spin" aria-hidden="true" />}
+      {name === "searchProducts" || name === "searchServices" || name === "searchMarket" || name === "searchMarketServices" ? <Search className="size-3.5" aria-hidden="true" /> : <Loader2 className="size-3.5 motion-safe:animate-spin" aria-hidden="true" />}
       {PENDING_LABEL[name] ?? "Working"}…
     </p>
   );
@@ -78,7 +88,7 @@ function AddToCart({ product, actions }: { product: ProductCardData; actions: Ch
 
   if (!actions.signedIn) {
     return (
-      <Link href={`/s/${actions.slug}/signin?next=${encodeURIComponent(`/s/${actions.slug}/chat`)}`} className={buttonClasses({ size: "sm" })}>
+      <Link href={actions.signInHref} className={buttonClasses({ size: "sm" })}>
         Sign in to add
       </Link>
     );
@@ -397,9 +407,154 @@ function SignInPrompt({ actions }: { actions: ChatActions }) {
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-surface p-3">
       <p className="min-w-0 flex-1 text-sm">Sign in to use a cart, place orders or book — and so Nia can remember you.</p>
-      <Link href={`/s/${actions.slug}/signin?next=${encodeURIComponent(`/s/${actions.slug}/chat`)}`} className={buttonClasses({ size: "sm" })}>
+      <Link href={actions.signInHref} className={buttonClasses({ size: "sm" })}>
         Sign in
       </Link>
+    </div>
+  );
+}
+
+/* ─────────────────────────────── Walrus Market ─────────────────────────────── */
+
+interface MarketToolProduct {
+  id: string;
+  name: string;
+  image: string | null;
+  category: string | null;
+  price: number | null;
+  priceMax: number | null;
+  currency: string;
+  unit: string | null;
+  inventoryStatus: InventoryStatus;
+  url: string;
+  options?: string[];
+  shop: { name: string; type: string; city: string | null; demo: boolean; delivery?: boolean; pickup?: boolean; deliveryAreas?: string[] };
+}
+
+function fromMarketTool(p: MarketToolProduct): CompareProduct {
+  return {
+    ...p,
+    shop: { name: p.shop.name, slug: p.url.split("/")[2] ?? "", label: p.shop.type, city: p.shop.city, demo: p.shop.demo },
+    variants: (p.options ?? []).map((name) => ({ name, available: true })),
+    delivery: Boolean(p.shop.delivery),
+    pickup: Boolean(p.shop.pickup),
+    deliveryAreas: p.shop.deliveryAreas ?? [],
+  };
+}
+
+function MarketResults({ products, actions }: { products: MarketToolProduct[]; actions: ChatActions }) {
+  if (products.length === 0) return null;
+  return (
+    <ul className="space-y-2.5">
+      {products.slice(0, 4).map((raw) => {
+        const p = fromMarketTool(raw);
+        return (
+          <li key={p.id} className="nia-enter">
+            <MarketProductCard
+              product={p}
+              locale={actions.locale}
+              layout="row"
+              actions={
+                <>
+                  <Link href={p.url} className={buttonClasses({ size: "sm" })}>
+                    View at {p.shop.name}
+                  </Link>
+                  <CompareToggle productId={p.id} />
+                  <Button size="sm" variant="ghost" disabled={actions.busy} onClick={() => actions.send(`Tell me more about the ${p.name} from ${p.shop.name}`)}>
+                    Ask Nia
+                  </Button>
+                </>
+              }
+            />
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+interface MarketToolService {
+  id: string;
+  name: string;
+  category: string | null;
+  priceMin: number | null;
+  priceMax: number | null;
+  currency: string;
+  durationMinutes: number | null;
+  nextAvailable: string | null;
+  image?: string | null;
+  url: string;
+  shop: { name: string; city: string | null };
+}
+
+function MarketServiceResults({ services, actions }: { services: MarketToolService[]; actions: ChatActions }) {
+  if (services.length === 0) return null;
+  return (
+    <ul className="space-y-2.5">
+      {services.slice(0, 4).map((s) => (
+        <li key={s.id} className="nia-enter flex gap-3 rounded-2xl border border-border bg-surface p-3">
+          <div className="w-20 shrink-0 sm:w-24">
+            <ProductVisual name={s.name} category={s.category} image={s.image ?? null} kind="SERVICE" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-xs font-medium text-muted-foreground">
+              {s.shop.name}
+              {s.shop.city ? ` · ${s.shop.city}` : ""}
+            </p>
+            <h3 className="mt-0.5 font-semibold leading-snug">{s.name}</h3>
+            <p className="mt-0.5 text-sm font-bold tabular">
+              {s.priceMin == null && s.priceMax == null ? "Price on consultation" : formatPriceRange(s.priceMin, s.priceMax, s.currency, { locale: actions.locale })}
+              {s.durationMinutes ? <span className="font-normal text-muted-foreground"> · {s.durationMinutes} min</span> : null}
+            </p>
+            <div className="mt-2.5">
+              <Link href={s.url} className={buttonClasses({ size: "sm" })}>
+                Book at {s.shop.name}
+              </Link>
+            </div>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function CompareResult({ products, actions }: { products: MarketToolProduct[]; actions: ChatActions }) {
+  if (products.length < 2) return null;
+  return (
+    <div className="nia-enter rounded-2xl border border-border bg-surface p-3">
+      <CompareTable products={products.map(fromMarketTool)} locale={actions.locale} />
+    </div>
+  );
+}
+
+/** One decision question as tap-to-answer buttons (the answer is sent as the shopper's message). */
+function DecisionChips({ question, options, actions, latest }: { question: string; options: string[]; actions: ChatActions; latest: boolean }) {
+  const [picked, setPicked] = useState<string | null>(null);
+  const closed = picked !== null || !latest;
+  return (
+    <div className="nia-enter nia-holo-border rounded-2xl p-3.5" role="group" aria-label={question}>
+      <p className="text-sm font-semibold">{question}</p>
+      <div className="mt-2.5 flex flex-wrap gap-2">
+        {options.map((o) => (
+          <button
+            key={o}
+            type="button"
+            disabled={closed || actions.busy}
+            aria-pressed={picked === o}
+            onClick={() => {
+              setPicked(o);
+              actions.send(o);
+            }}
+            className={cn(
+              "min-h-10 rounded-full border px-4 text-sm font-semibold transition-colors duration-100 disabled:cursor-default",
+              picked === o ? "border-accent bg-accent text-accent-foreground" : "border-border bg-background hover:border-accent hover:bg-accent-soft disabled:opacity-60 disabled:hover:border-border disabled:hover:bg-background",
+            )}
+          >
+            {o}
+          </button>
+        ))}
+      </div>
+      {!closed ? <p className="mt-2 text-xs text-muted-foreground">Tap an answer or type your own.</p> : null}
     </div>
   );
 }
@@ -409,7 +564,7 @@ function SignInPrompt({ actions }: { actions: ChatActions }) {
 const CART_TOOLS = new Set(["createDraftOrder", "addItemToDraft", "updateDraftItem", "removeDraftItem", "setFulfillment"]);
 
 /** Render all tool parts of one assistant message. Cart updates collapse into the latest state. */
-export function ToolParts({ parts, actions }: { parts: ToolPart[]; actions: ChatActions }) {
+export function ToolParts({ parts, actions, latest = true }: { parts: ToolPart[]; actions: ChatActions; latest?: boolean }) {
   const nodes: React.ReactNode[] = [];
   const hasSummary = parts.some((p) => p.type === "tool-showOrderSummary" && p.state === "output-available" && p.output?.ok);
   const lastCart = [...parts].reverse().find((p) => CART_TOOLS.has(p.type.slice(5)) && p.state === "output-available" && p.output?.ok);
@@ -432,6 +587,18 @@ export function ToolParts({ parts, actions }: { parts: ToolPart[]; actions: Chat
       continue;
     }
     switch (name) {
+      case "searchMarket":
+        nodes.push(<MarketResults key={p.toolCallId} products={(o.products as MarketToolProduct[]) ?? []} actions={actions} />);
+        break;
+      case "searchMarketServices":
+        nodes.push(<MarketServiceResults key={p.toolCallId} services={(o.services as MarketToolService[]) ?? []} actions={actions} />);
+        break;
+      case "compareProducts":
+        nodes.push(<CompareResult key={p.toolCallId} products={(o.products as MarketToolProduct[]) ?? []} actions={actions} />);
+        break;
+      case "askDecision":
+        nodes.push(<DecisionChips key={p.toolCallId} question={String(o.question)} options={(o.options as string[]) ?? []} actions={actions} latest={latest} />);
+        break;
       case "searchProducts":
         nodes.push(<ProductResults key={p.toolCallId} products={(o.products as ProductCardData[]) ?? []} actions={actions} />);
         break;

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Badge } from "@nia/ui";
 import { getDraft, orderSummary } from "@nia/commerce";
 import { StoreBottomNav, StoreTopNav } from "@/components/store/store-nav";
@@ -16,6 +17,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 export default async function StoreLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { merchant, customer, isMember } = await getStorefront(slug);
+  // The Walrus Market record is not a storefront.
+  if (merchant.kind === "market") redirect("/market");
   let cartCount = 0;
   if (customer) {
     const draft = await getDraft(db(), merchant.id, customer.id);
@@ -32,6 +35,9 @@ export default async function StoreLayout({ children, params }: { children: Reac
           </Link>
           <StoreTopNav slug={slug} />
           <div className="flex items-center gap-2">
+            <Link href="/market" className="hidden rounded-lg px-2 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground lg:inline">
+              Walrus Market
+            </Link>
             {merchant.isDemo ? (
               <Badge tone="neutral" className="hidden sm:inline-flex">
                 Demo store

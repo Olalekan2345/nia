@@ -97,6 +97,9 @@ export function aiBusyMessage(err: unknown): string | null {
     e = x.lastError ?? x.cause;
   }
   const text = parts.join(" ");
+  if (/request too large|reduce your message size/i.test(text)) {
+    return "This conversation has grown too long for Nia’s current AI plan. Start a new chat (the + button) and Nia will still remember what you told her.";
+  }
   if (!/\b429\b|rate limit/i.test(text)) return null;
   const seconds = Number(/try again in (\d+(?:\.\d+)?)s/i.exec(text)?.[1]);
   const wait = Number.isFinite(seconds) && seconds > 0 ? `about ${Math.ceil(seconds)} seconds` : "a few seconds";

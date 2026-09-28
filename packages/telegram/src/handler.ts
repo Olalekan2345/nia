@@ -40,6 +40,7 @@ import {
 import { awaitDurable, customerPassport, resolveCandidate, type MemoryReceipt, type MemoryStore } from "@nia/memory";
 import {
   aiBusyMessage,
+  answerOnLastStep,
   cancelCustomerBooking,
   confirmCustomerBooking,
   confirmCustomerOrder,
@@ -47,6 +48,7 @@ import {
   extractAndRemember,
   getChatModel,
   isAiConfigured,
+  MAX_STEPS,
   memoryUsage,
   prepareTurn,
   saveAssistantMessage,
@@ -637,7 +639,8 @@ export async function runTurn(c: ChatContext, merchant: Merchant, text: string, 
       messages: turn.messages,
       tools: turn.tools,
       activeTools: turn.activeTools,
-      stopWhen: stepCountIs(6),
+      stopWhen: stepCountIs(MAX_STEPS),
+      prepareStep: answerOnLastStep,
       temperature: 0.4,
       maxRetries: turn.maxRetries,
     });

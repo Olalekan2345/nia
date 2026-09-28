@@ -3,7 +3,7 @@
  * stores and by onboarding ("Start from a template"). Every business, address
  * and product here is invented.
  */
-import { eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import type { DeliveryArea, ServiceAvailability, WeeklyHours } from "@nia/shared";
 import type { Db } from "./client";
 import { merchantKnowledge, merchants, products, productVariants, services, type MerchantFulfillment } from "./schema";
@@ -17,6 +17,33 @@ interface VariantSeed {
   inventoryStatus?: "in_stock" | "low_stock" | "out_of_stock" | "made_to_order" | "unknown";
   stockQuantity?: number | null;
 }
+
+/**
+ * Free stock photos (Burst — free for commercial use) for demo items, served from
+ * apps/web/public/stock/<slug>.jpg; sources in apps/web/public/stock/credits.json.
+ * Items not listed keep Nia's generated swatch until a merchant uploads a photo.
+ */
+const STOCK_PHOTOS = new Set([
+  "classic-ankara-wax-print",
+  "corded-french-lace",
+  "aso-oke-celebration-set",
+  "midnight-linen-kaftan",
+  "everyday-linen-shirt",
+  "silk-headwrap",
+  "made-to-measure-outfit",
+  "measurement-style-consultation",
+  "alterations",
+  "whipped-shea-body-butter",
+  "hydrating-hair-serum",
+  "silk-press",
+  "knotless-braids",
+  "gel-manicure",
+  "brow-lamination",
+  "country-sourdough-loaf",
+  "cinnamon-rolls",
+  "celebration-cake",
+]);
+const stockPhotos = (slug: string): string[] => (STOCK_PHOTOS.has(slug) ? [`/stock/${slug}.jpg`] : []);
 
 interface ProductSeed {
   kind?: "PRODUCT" | "CUSTOM_ORDER" | "PACKAGE";
@@ -596,6 +623,7 @@ export async function applyDemoTemplate(
         inventoryStatus: p.inventoryStatus ?? "unknown",
         stockQuantity: p.stockQuantity ?? null,
         tags: p.tags ?? [],
+        images: stockPhotos(p.slug),
         metadata: { template: key },
       })
       .returning({ id: products.id });
@@ -637,8 +665,25 @@ export async function applyDemoTemplate(
       options: s.options ?? [],
       availability: s.availability,
       tags: s.tags ?? [],
+      images: stockPhotos(s.slug),
     });
     serviceCount++;
+  }
+
+  // Demo items created before photos existed: add the stock photo, never replacing a merchant's own.
+  for (const p of template.products) {
+    if (!existingProducts.has(p.slug) || !STOCK_PHOTOS.has(p.slug)) continue;
+    await db
+      .update(products)
+      .set({ images: stockPhotos(p.slug) })
+      .where(and(eq(products.merchantId, merchantId), eq(products.slug, p.slug), sql`${products.images} = '[]'::jsonb`));
+  }
+  for (const sv of template.services) {
+    if (!existingServices.has(sv.slug) || !STOCK_PHOTOS.has(sv.slug)) continue;
+    await db
+      .update(services)
+      .set({ images: stockPhotos(sv.slug) })
+      .where(and(eq(services.merchantId, merchantId), eq(services.slug, sv.slug), sql`${services.images} = '[]'::jsonb`));
   }
 
   const existingKnowledge = await db

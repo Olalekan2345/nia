@@ -44,3 +44,29 @@ test("telegram webhook rejects a missing or wrong secret", async ({ request }) =
   const res = await request.post("/api/telegram/webhook", { data: { update_id: 1 }, headers: { "x-telegram-bot-api-secret-token": "wrong" } });
   expect([401, 503]).toContain(res.status());
 });
+
+test("Walrus Market: browse every shop, search, compare side by side", async ({ page }) => {
+  await page.goto("/market");
+  await expect(page.getByRole("heading", { name: /Welcome to Walrus Market/ })).toBeVisible();
+  // Products from different shops, with real photos.
+  await expect(page.getByText("Classic Ankara Wax Print").first()).toBeVisible();
+  await expect(page.getByText("Country Sourdough Loaf").first()).toBeVisible();
+  await expect(page.locator('img[src^="/stock/"]:visible').first()).toBeVisible();
+
+  await page.goto("/market?q=cake");
+  await expect(page.getByRole("heading", { name: /Results for “cake”/ })).toBeVisible();
+  await expect(page.getByText("Celebration Cake").first()).toBeVisible();
+
+  await page.goto("/market");
+  const cards = page.locator("article").filter({ has: page.getByRole("button", { name: "Compare" }) });
+  await cards.filter({ hasText: "Classic Ankara Wax Print" }).getByRole("button", { name: "Compare" }).click();
+  await cards.filter({ hasText: "Corded French Lace" }).getByRole("button", { name: "Compare" }).click();
+  await page.getByRole("link", { name: "Compare now" }).click();
+  await expect(page.getByRole("heading", { name: "Compare", exact: true })).toBeVisible();
+  await expect(page.getByRole("table")).toContainText("Classic Ankara Wax Print");
+  await expect(page.getByRole("table")).toContainText("Corded French Lace");
+  await expect(page.getByRole("link", { name: /Ask Nia to decide/ })).toBeVisible();
+
+  await page.goto("/market/nia");
+  await expect(page.getByText("Help me choose a gift")).toBeVisible();
+});

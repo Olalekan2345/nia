@@ -56,7 +56,12 @@ export default async function TryPage() {
           <p className="mt-3 max-w-xl text-muted-foreground">
             Chat with the shop’s assistant, sign in, and tell it what you like. Start a new chat later and it remembers you, with memory stored on Walrus.
           </p>
-          <WalrusChip className="mt-4" />
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+            <WalrusChip />
+            <Link href="/market" className="text-sm font-semibold text-accent-strong hover:underline">
+              Or browse every shop in Walrus Market →
+            </Link>
+          </div>
         </div>
 
         {shops.length ? (

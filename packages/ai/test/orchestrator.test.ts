@@ -31,6 +31,10 @@ import {
   withMoneyLabels,
 } from "../src";
 import { jsonModel, scriptedModel } from "./mock-model";
+import type { MarketTools, NiaTools } from "../src";
+
+/** Shop turns carry the shop tool set (market turns carry the market one). */
+const shopTools = (turn: { tools: unknown }) => turn.tools as NiaTools;
 
 let db: Database;
 let close: () => Promise<void>;
@@ -102,14 +106,14 @@ describe("tool calling", () => {
 
   it("returns an empty result instead of inventing products", async () => {
     const { prepared } = await turn(null, "Do you sell laptops?");
-    const output = await prepared.tools.searchProducts.execute!({ query: "laptop" }, { toolCallId: "x", messages: [], context: {} as never });
+    const output = await shopTools(prepared).searchProducts.execute!({ query: "laptop" }, { toolCallId: "x", messages: [], context: {} as never });
     expect(output).toMatchObject({ ok: true, count: 0, products: [] });
   });
 
   it("requires sign-in for cart tools and rejects cross-tenant ids", async () => {
     const { prepared } = await turn(null, "add it");
     const [p] = await db.select().from(products).where(eq(products.merchantId, shop.id)).limit(1);
-    const res = await prepared.tools.addItemToDraft.execute!({ productId: p!.id, quantity: 1 }, { toolCallId: "x", messages: [], context: {} as never });
+    const res = await shopTools(prepared).addItemToDraft.execute!({ productId: p!.id, quantity: 1 }, { toolCallId: "x", messages: [], context: {} as never });
     expect(res).toMatchObject({ ok: false, code: "SIGN_IN_REQUIRED" });
 
     const other = await createMerchant(db);
@@ -117,7 +121,7 @@ describe("tool calling", () => {
     const [foreign] = await db.select().from(products).where(eq(products.merchantId, other.id)).limit(1);
     const customer = await webCustomer();
     const { prepared: signedIn } = await turn(customer, "add that");
-    const cross = await signedIn.tools.addItemToDraft.execute!({ productId: foreign!.id, quantity: 1 }, { toolCallId: "x", messages: [], context: {} as never });
+    const cross = await shopTools(signedIn).addItemToDraft.execute!({ productId: foreign!.id, quantity: 1 }, { toolCallId: "x", messages: [], context: {} as never });
     expect(cross).toMatchObject({ ok: false });
   });
 
@@ -210,7 +214,7 @@ describe("flagship memory scenario", () => {
     const t1 = await turn(tgCustomer, "Can I get the same kind of thing as last time?", { channel: "telegram" });
     const tgTexts = t1.prepared.scope.recalled.customer.map((m) => m.text).join("\n");
     expect(tgTexts).toMatch(/Midnight Linen Kaftan \(Black \/ M\)/);
-    const orders = (await t1.prepared.tools.getCustomerRecentOrders.execute!({}, { toolCallId: "x", messages: [], context: {} as never })) as { ok: true; orders: OrderSummaryData[]; repeat: { status: string } };
+    const orders = (await shopTools(t1.prepared).getCustomerRecentOrders.execute!({}, { toolCallId: "x", messages: [], context: {} as never })) as { ok: true; orders: OrderSummaryData[]; repeat: { status: string } };
     expect(orders.repeat.status).toBe("single");
     expect(t1.prepared.system).toContain("Telegram");
   });
@@ -228,7 +232,7 @@ describe("flagship memory scenario", () => {
     expect(off.prepared.scope.recalled.customer).toHaveLength(0);
     expect(off.prepared.system).toContain("MEMORY MODE: OFF");
     expect(off.prepared.system).not.toContain("size XL");
-    const hist = await off.prepared.tools.getCustomerRecentOrders.execute!({}, { toolCallId: "x", messages: [], context: {} as never });
+    const hist = await shopTools(off.prepared).getCustomerRecentOrders.execute!({}, { toolCallId: "x", messages: [], context: {} as never });
     expect(hist).toMatchObject({ ok: false, code: "MEMORY_OFF" });
   });
 
@@ -370,3 +374,42 @@ describe("telegram link tokens", () => {
 });
 
 void createCustomer;
+
+describe("Walrus Market guide", () => {
+  it("searches across shops, asks decision questions, and remembers answers in the shopper's market memory", async () => {
+    const market = await createMerchant(db, { name: "Walrus Market", slug: "market-guide-test", kind: "market", businessType: "other" });
+    const user = await createUser(db);
+    const shopper = await resolveWebCustomer(db, { merchantId: market.id, userId: user.id, email: user.email, name: "Tolu" });
+    const conversation = await createConversation(db, { merchantId: market.id, customerId: shopper.id, channel: "web" });
+    const text = "It's a gift for my sister and my budget is 20,000 naira.";
+    const saved = await saveUserMessage(db, { conversation, text, channel: "web" });
+    const ctx = { db, store, merchant: market, customer: shopper, conversation, channel: "web" as const };
+    const prepared = await prepareTurn(ctx, text);
+
+    expect(prepared.system).toContain("Walrus Market");
+    expect(prepared.system).toContain("Adire Lane");
+    expect(prepared.activeTools).toEqual(expect.arrayContaining(["searchMarket", "searchMarketServices", "compareProducts", "askDecision"]));
+    expect(prepared.activeTools).not.toContain("addItemToDraft");
+
+    const tools = prepared.tools as MarketTools;
+    const call = { toolCallId: "x", messages: [], context: {} as never };
+    const found = (await tools.searchMarket.execute!({ query: "ankara" }, call)) as unknown as { ok: true; products: { shop: { name: string }; priceLabel: string; url: string }[] };
+    expect(found.products[0]!.shop.name).toBe("Adire Lane");
+    expect(found.products[0]!.priceLabel).toMatch(/7,500/);
+    expect(found.products[0]!.url).toMatch(/^\/s\/.+\/shop\//);
+    expect(await tools.askDecision.execute!({ question: "Who is it for?", options: ["For me", "A gift"] }, call)).toEqual({ ok: true, question: "Who is it for?", options: ["For me", "A gift"] });
+
+    setModelOverrides({
+      extraction: jsonModel({
+        candidates: [
+          candidate({ type: "BUDGET", subject: "budget_range", value: "20,000 naira", statement: "Shopper's gift budget is 20,000 naira.", label: "Budget: ₦20,000", evidence: "my budget is 20,000 naira" }),
+          candidate({ type: "RELATIONSHIP_CONTEXT", subject: "gift_recipient", value: "sister", statement: "Shopper is buying a gift for their sister.", label: "Buying for: sister", evidence: "a gift for my sister" }),
+        ],
+      }),
+    });
+    const after = await extractAndRemember(ctx, prepared, { assistantText: "Noted.", userMessageId: saved.id });
+    const receipts = after.outcomes.map((o) => o.receipt).filter(Boolean);
+    expect(receipts.length).toBe(2);
+    for (const r of receipts) expect(r!.namespace).toContain(`merchant:${market.id}:customer:${shopper.id}`);
+  });
+});

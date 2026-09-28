@@ -24,6 +24,10 @@ import {
   saveAssistantMessage,
   saveUserMessage,
   updateAssistantParts,
+  answerOnLastStep,
+  MAX_STEPS,
+  withAskedQuestions,
+  type AskedDecision,
   type NiaDataParts,
   type NiaUIMessage,
 } from "@nia/ai";
@@ -144,7 +148,8 @@ export async function POST(req: Request) {
         messages: turn.messages,
         tools: turn.tools,
         activeTools: turn.activeTools,
-        stopWhen: stepCountIs(6),
+        stopWhen: stepCountIs(MAX_STEPS),
+        prepareStep: answerOnLastStep,
         temperature: 0.4,
         maxRetries: turn.maxRetries,
         abortSignal: req.signal,
@@ -171,7 +176,14 @@ export async function POST(req: Request) {
       // Tools may have recalled more memories mid-turn.
       if (showRecall()) writer.write({ type: "data-recall", id: "recall", data: recall() });
       const baseParts = [...(showRecall() ? [{ type: "data-recall", id: "recall", data: recall() }] : []), ...responseParts.filter((p) => (p as { type: string }).type !== "data-recall")];
-      await saveAssistantMessage(db(), { conversation: conv, id: messageId, text, parts: baseParts, memoryUsed: memoryUsage(turn.scope), channel: "web" });
+      // Keep decision questions in the stored text, so the next turn (and memory extraction)
+      // knows what a tapped answer like "A gift" was answering.
+      const asked = (await result.steps)
+        .flatMap((st) => st.toolCalls)
+        .filter((tc) => tc.toolName === "askDecision")
+        .map((tc) => tc.input as AskedDecision);
+      const storedText = withAskedQuestions(text, asked);
+      await saveAssistantMessage(db(), { conversation: conv, id: messageId, text: storedText, parts: baseParts, memoryUsed: memoryUsage(turn.scope), channel: "web" });
 
       // Memory: extract → classify → persist → confirm durably.
       if (customer && turn.memoryMode === "on" && store) {

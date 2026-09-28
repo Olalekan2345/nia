@@ -105,7 +105,7 @@ export function ServiceCard({ service, locale, timeZone, actions }: { service: S
   return (
     <article className="flex gap-3 rounded-2xl border border-border bg-surface p-3">
       <div className="w-20 shrink-0 sm:w-24">
-        <ProductVisual name={service.name} category={service.category} kind={service.offeringKind} />
+        <ProductVisual name={service.name} category={service.category} kind={service.offeringKind} image={service.image} />
       </div>
       <div className="min-w-0 flex-1">
         <h3 className="font-semibold leading-snug">{service.name}</h3>

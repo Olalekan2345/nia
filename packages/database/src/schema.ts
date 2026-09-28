@@ -15,6 +15,7 @@ import {
   bigint,
   boolean,
   check,
+  customType,
   index,
   integer,
   jsonb,
@@ -55,6 +56,10 @@ const updatedAt = () =>
     .defaultNow()
     .$onUpdate(() => new Date());
 const money = (name: string) => bigint(name, { mode: "number" });
+const bytea = customType<{ data: Buffer; driverData: Buffer | Uint8Array }>({
+  dataType: () => "bytea",
+  fromDriver: (value) => Buffer.from(value),
+});
 
 /* ─────────────────────────────── Identity & auth ─────────────────────────────── */
 
@@ -155,6 +160,12 @@ export const merchants = pgTable("merchants", {
   status: text("status").$type<"onboarding" | "live" | "paused">().notNull().default("onboarding"),
   onboardingStep: integer("onboarding_step").notNull().default(0),
   isDemo: boolean("is_demo").notNull().default(false),
+  /**
+   * "shop" for every real storefront. "market" is the single Walrus Market record:
+   * it sells nothing itself, but gives each shopper a market-level customer, so
+   * Nia's market guide has its own per-user Walrus memory (separate from shops).
+   */
+  kind: text("kind").$type<"shop" | "market">().notNull().default("shop"),
   nextOrderNumber: integer("next_order_number").notNull().default(1001),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
@@ -340,6 +351,28 @@ export const telegramLoginRequests = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("telegram_login_requests_created_idx").on(t.createdAt)],
+);
+
+/**
+ * Images merchants upload (product photos). Normalised on upload (EXIF-rotated,
+ * metadata stripped, JPEG ≤ 1600 px) and served immutably by /api/media/[id].
+ */
+export const media = pgTable(
+  "media",
+  {
+    id: id(),
+    merchantId: uuid("merchant_id")
+      .notNull()
+      .references(() => merchants.id, { onDelete: "cascade" }),
+    contentType: text("content_type").notNull(),
+    bytes: bytea("bytes").notNull(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    uploadedByUserId: uuid("uploaded_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("media_merchant_idx").on(t.merchantId)],
 );
 
 /** Processed Telegram update ids (dedup — Telegram retries deliveries). */
@@ -790,3 +823,4 @@ export type WalrusJob = typeof walrusJobs.$inferSelect;
 export type MerchantKnowledge = typeof merchantKnowledge.$inferSelect;
 export type TelegramIdentity = typeof telegramIdentities.$inferSelect;
 export type TelegramLoginRequest = typeof telegramLoginRequests.$inferSelect;
+export type Media = typeof media.$inferSelect;

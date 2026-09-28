@@ -96,7 +96,8 @@ export function classifyCandidate(c: MemoryCandidate): PolicyDecision {
   }
 
   const isEvent = EVENT_TYPES.has(c.type);
-  if (c.temporalScope === "this_order_only") {
+  // "Buying for my sister's birthday" is about this purchase, but who they shop for stays useful.
+  if (c.temporalScope === "this_order_only" && !isEvent) {
     reasons.push("applies only to the current order — kept with the order, not the profile");
     return result("ephemeral");
   }

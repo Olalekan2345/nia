@@ -56,7 +56,8 @@ test("merchant onboarding → product → customer order → merchant sees it", 
   await c.getByRole("button", { name: "Pickup" }).click();
   await expect(c.getByRole("button", { name: "Confirm order" })).toBeEnabled();
   await c.getByRole("button", { name: "Confirm order" }).click();
-  await expect(c.getByText(/Order #\d+ placed/)).toBeVisible();
+  // Confirming records the order memory on Walrus Mainnet before replying.
+  await expect(c.getByText(/Order #\d+ placed/)).toBeVisible({ timeout: 60_000 });
 
   // Customers can't open the merchant's dashboard (404, not a redirect leak).
   const res = await c.goto(`/dashboard/${merchantId}`);

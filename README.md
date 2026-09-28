@@ -23,11 +23,12 @@ Nia is an AI shopping and service assistant for independent businesses. It sells
 
 ## Features
 
+- **Walrus Market (`/market`):** every live shop in one place — search and filter across shops, “Picked for you” from the shopper’s market memory, side-by-side **compare**, and **Nia as a shopping guide** who asks one quick decision question at a time (tap-to-answer buttons). Each answer is stored on Walrus in the shopper’s own market namespace, separate from every shop’s memory. Buying happens in the shop the shopper picks.
 - **Customer storefront (mobile-first):** home with personal quick actions, shop + search, product pages, **chat** (streaming, product/service/booking/cart cards, memory chips), cart & orders, profile with **Memory Passport** and **Connect Telegram**. Sign-in: **Continue with Telegram** (bot-confirmed, number matching) or an email code.
 - **Memory:** typed memory model (19 types), schema-validated extraction, application-owned policy (ignore / ephemeral / ask first / durable), dedup, corrections with temporal history, provenance, logical forgetting, durable-wait receipts, order & booking history memories, merchant knowledge + operations memory.
 - **Commerce:** products, variants, services, appointments, custom orders, packages; cart; order state machine; bookings with slot computation in the shop’s time zone; stock reservation; payment provider abstraction (merchant-confirmed, payment link, Paystack with signed webhook).
 - **Telegram bot:** webhook with secret-token verification and update dedup, native inline keyboards, typing indicator, product/service cards, web sign-in approval with number matching, continue-the-web-conversation, `/logout` (sign out everywhere), `/last`, `/memory`, repeat-order buttons.
-- **Merchant dashboard:** overview (only real metrics), conversations, customers (with memory), catalog editors, orders & bookings workflows, **Walrus memory explorer** (health, blob IDs, per-customer counts cross-checked with the relayer), settings, team roles (OWNER/ADMIN/STAFF), onboarding wizard.
+- **Merchant dashboard:** overview (only real metrics), conversations, customers (with memory), catalog editors with **photo upload** (resized and stripped of metadata on the server), orders & bookings workflows, **Walrus memory explorer** (health, blob IDs, per-customer counts cross-checked with the relayer), settings, team roles (OWNER/ADMIN/STAFF), onboarding wizard.
 - **Judge Mode:** proof panel (agent ID, blob count, customers with 10+ memories) and a genuine side-by-side **memory OFF vs ON** comparison.
 
 ## Architecture
@@ -83,6 +84,8 @@ pnpm test:walrus   # opt-in: writes one memory to Mainnet, recalls it semantical
 pnpm test:ai       # opt-in: runs real memory extraction with your model
 ```
 
+Or open `http://localhost:3210/market`, tap **Help me choose** and answer Nia’s questions — then open **Your market profile** to see each answer stored on Walrus.
+
 Then open `http://localhost:3210/try`, pick a demo shop (fabric, salon or bakery), sign in as a customer, and tell Nia “I normally buy Medium, I like darker colours, and I usually want delivery around Lekki.”
 
 Set `SEED_OWNER_EMAIL` before `pnpm db:seed` to own the demo stores (their dashboards and Judge Mode).
@@ -112,9 +115,9 @@ In production use a real HTTPS webhook: `pnpm telegram:webhook -- set`. See [doc
 
 ## Tests
 
-`pnpm test` — 93 tests: Telegram sign-in (number matching, expiry, single use, browser binding), one customer across web and Telegram (adopt/merge), cross-channel conversation continuity, sign-out everywhere, namespace derivation, tenant/customer isolation, dedup, corrections & temporal history, forgetting & IDOR, consent flow, write budget, failure/retry, structured extraction validation, policy decisions, Walrus rate-limit budget (batched/shared status checks, 429 cooldown), tool selection, recall query building, repeat-order resolution (none/single/ambiguous), catalog filtering & non-hallucination, unknown-stock labelling, cart/orders/stock reservation, bookings & capacity & time zones, Paystack signatures, Telegram secret verification & update dedup & linking & token expiry/reuse, prompt-injection neutralisation, sensitive-data redaction, and the full flagship scenario (web → correction → Telegram) at the service level.
+`pnpm test` — 108 tests: Walrus Market search/compare across shops, decision answers → memories, Telegram sign-in (number matching, expiry, single use, browser binding), one customer across web and Telegram (adopt/merge), cross-channel conversation continuity, sign-out everywhere, namespace derivation, tenant/customer isolation, dedup, corrections & temporal history, forgetting & IDOR, consent flow, write budget, failure/retry, structured extraction validation, policy decisions, Walrus rate-limit budget (batched/shared status checks, 429 cooldown), tool selection, recall query building, repeat-order resolution (none/single/ambiguous), catalog filtering & non-hallucination, unknown-stock labelling, cart/orders/stock reservation, bookings & capacity & time zones, Paystack signatures, Telegram secret verification & update dedup & linking & token expiry/reuse, prompt-injection neutralisation, sensitive-data redaction, and the full flagship scenario (web → correction → Telegram) at the service level.
 
-`pnpm test:e2e` (own `<db>_e2e` database, so test shops never appear in your dev data) — landing, demo shop picker across business types, demo store search, health endpoint secrecy, CSRF rejection, webhook secret rejection, and merchant onboarding → product → publish → customer order → cross-tenant 404 → merchant confirmation.
+`pnpm test:e2e` (own `<db>_e2e` database, so test shops never appear in your dev data) — landing, demo shop picker across business types, demo store search, Walrus Market (browse, search, compare), health endpoint secrecy, CSRF rejection, webhook secret rejection, and merchant onboarding → product → publish → customer order → cross-tenant 404 → merchant confirmation.
 
 ## Security & privacy
 
@@ -124,9 +127,10 @@ Delegate key, bot token and API keys are server-only. Namespaces are derived on 
 
 - Walrus Memory has no per-memory delete in SDK 0.1.8; “forget” is logical exclusion (see [docs/WALRUS.md](docs/WALRUS.md)).
 - The Walrus relayer allows **60 weighted requests/min per delegate key**, shared by all customers of a deployment. Nia batches and shares job-status checks, skips recall for empty namespaces, and backs off for the relayer’s `retry_after` on a 429 (recall then shows an honest “recall failed” chip). Heavier traffic needs a higher relayer quota.
-- On Groq’s free tier (~8,000 tokens/min), one Nia turn uses ~4,500–5,500 tokens, so a second message within a minute waits for the limit to reset. Use the paid Developer tier for real users.
+- On Groq’s free tier (7,000 input tokens/min), one Nia turn uses ~4,000–5,500 tokens, so a second message within a minute waits for the limit to reset (Nia shows a friendly “try again in N seconds”). Use the paid Developer tier for real users.
 - App rate limits are Postgres fixed windows — good enough for one region; use Redis for high scale.
-- Image upload in chat is not implemented; product images are URLs.
+- Image upload in chat is not implemented. Merchants upload product photos in the dashboard (or paste an https link).
+- Demo products use free stock photos from [Burst](https://burst.shopify.com) (credits in `apps/web/public/stock/credits.json`), marked “Illustrative photo” on product pages. Two demo products without a good match keep a colour swatch.
 - Paystack is the only built-in card provider; others plug into the payment abstraction.
 
 ## Docs

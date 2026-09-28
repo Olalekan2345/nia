@@ -29,7 +29,18 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         <ArrowLeft className="size-4" aria-hidden="true" /> Shop
       </Link>
       <div className="mt-2 grid gap-8 md:grid-cols-2">
-        <ProductVisual name={product.name} category={product.category} colours={product.variants.map((v) => v.options.colour ?? v.name)} image={product.image} rounded="rounded-3xl" />
+        <figure>
+          <ProductVisual name={product.name} category={product.category} colours={product.variants.map((v) => v.options.colour ?? v.name)} image={product.image} rounded="rounded-3xl" />
+          {product.image?.startsWith("/stock/") ? (
+            <figcaption className="mt-2 text-xs text-muted-foreground">
+              Illustrative photo from{" "}
+              <a href="https://burst.shopify.com" target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">
+                Burst
+              </a>{" "}
+              (free stock).
+            </figcaption>
+          ) : null}
+        </figure>
         <div>
           {product.category ? <p className="text-sm font-semibold text-accent-strong">{product.category}</p> : null}
           <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-balance">{product.name}</h1>

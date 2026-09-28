@@ -40,6 +40,10 @@ export interface ChatViewProps {
   telegramUrl?: string | null;
   /** A recent Telegram conversation this web chat can pick up. */
   resume?: { href: string; preview: string } | null;
+  /** Where sign-in, the memory profile and "new chat" live (defaults: the shop's pages). */
+  paths?: { signIn: string; profile: string; newChat: string };
+  /** Line under the empty-state greeting. */
+  intro?: string;
 }
 
 type DataPart<K extends keyof NiaDataParts> = { type: `data-${K}`; id?: string; data: NiaDataParts[K] };
@@ -140,8 +144,10 @@ export function ChatView(props: ChatViewProps) {
     return () => clearTimeout(t);
   }, [celebrate]);
 
+  const paths = props.paths ?? { signIn: `/s/${slug}/signin?next=${encodeURIComponent(`/s/${slug}/chat`)}`, profile: `/s/${slug}/profile`, newChat: `/s/${slug}/chat` };
   const actions: ChatActions = {
     slug,
+    signInHref: paths.signIn,
     locale,
     timeZone,
     signedIn,
@@ -203,7 +209,7 @@ export function ChatView(props: ChatViewProps) {
     mascot === "thinking" ? "Thinking…" : mascot === "recalling" ? "Recalling…" : mascot === "remembering" ? "Remembering…" : mascot === "order_success" ? "Order placed" : mascot === "booking_success" ? "Booking requested" : mascot === "warning" ? "Something went wrong" : null;
 
   const memoryBadge = !signedIn ? (
-    <Link href={`/s/${slug}/signin?next=${encodeURIComponent(`/s/${slug}/chat`)}`} className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground">
+    <Link href={paths.signIn} className="inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground">
       Guest · Sign in
     </Link>
   ) : memoryOff ? (
@@ -215,7 +221,7 @@ export function ChatView(props: ChatViewProps) {
       <CircleAlert className="size-3.5" aria-hidden="true" /> Memory not connected
     </span>
   ) : (
-    <Link href={`/s/${slug}/profile`} className="inline-flex items-center gap-1 rounded-full bg-memory-soft px-2.5 py-1 text-xs font-semibold text-memory hover:opacity-90">
+    <Link href={paths.profile} className="inline-flex items-center gap-1 rounded-full bg-memory-soft px-2.5 py-1 text-xs font-semibold text-memory hover:opacity-90">
       <Sparkles className="size-3.5" aria-hidden="true" /> Memory on
     </Link>
   );
@@ -244,7 +250,7 @@ export function ChatView(props: ChatViewProps) {
           </a>
         ) : null}
         {!props.compactHeader ? (
-          <a href={`/s/${slug}/chat`} className="grid size-10 place-items-center rounded-xl text-muted-foreground hover:bg-surface-2 hover:text-foreground" aria-label="New chat">
+          <a href={paths.newChat} className="grid size-10 place-items-center rounded-xl text-muted-foreground hover:bg-surface-2 hover:text-foreground" aria-label="New chat">
             <Plus className="size-5" aria-hidden="true" />
           </a>
         ) : null}
@@ -253,7 +259,7 @@ export function ChatView(props: ChatViewProps) {
       <div ref={scrollRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto overscroll-contain" role="log" aria-label="Conversation" aria-live="polite">
         <div className="mx-auto flex max-w-2xl flex-col gap-5 px-4 py-5">
           {messages.length === 0 ? (
-            <EmptyState name={props.customerName} shop={props.shopName} suggestions={props.suggestions} onPick={send} aiConfigured={props.aiConfigured} disabled={busy} resume={props.resume ?? null} />
+            <EmptyState name={props.customerName} shop={props.shopName} suggestions={props.suggestions} onPick={send} aiConfigured={props.aiConfigured} disabled={busy} resume={props.resume ?? null} intro={props.intro} />
           ) : null}
 
           {messages.map((m, idx) =>
@@ -265,6 +271,7 @@ export function ChatView(props: ChatViewProps) {
                 message={m}
                 actions={actions}
                 streaming={busy && idx === messages.length - 1}
+                latest={idx === messages.length - 1}
                 showExtraction={Boolean(props.showExtraction)}
                 onConsent={onConsent}
               />
@@ -359,6 +366,7 @@ function EmptyState({
   aiConfigured,
   disabled,
   resume,
+  intro,
 }: {
   name: string | null;
   shop: string;
@@ -367,12 +375,13 @@ function EmptyState({
   aiConfigured: boolean;
   disabled: boolean;
   resume: { href: string; preview: string } | null;
+  intro?: string;
 }) {
   return (
     <div className="flex flex-col items-center pt-6 text-center">
       <Mascot size={120} state="greeting" decorative />
       <h1 className="mt-4 text-2xl font-extrabold tracking-tight">{name ? `Hi ${name}, how can I help?` : "How can I help today?"}</h1>
-      <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">Ask about {shop}’s products and services, reorder something, or book an appointment.</p>
+      <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">{intro ?? `Ask about ${shop}’s products and services, reorder something, or book an appointment.`}</p>
       {!aiConfigured ? (
         <p className="mt-4 max-w-sm rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">
           The AI provider isn’t configured on this server yet (AI_PROVIDER, AI_MODEL, AI_API_KEY).
@@ -421,12 +430,14 @@ function AssistantMessage({
   message,
   actions,
   streaming,
+  latest,
   showExtraction,
   onConsent,
 }: {
   message: NiaUIMessage;
   actions: ChatActions;
   streaming: boolean;
+  latest: boolean;
   showExtraction: boolean;
   onConsent: (candidateId: string, accept: boolean) => Promise<MemoryReceiptView | null>;
 }) {
@@ -449,10 +460,10 @@ function AssistantMessage({
           <Markdown text={text} />
         </div>
       ) : null}
-      {tools.length ? <ToolParts parts={tools} actions={actions} /> : null}
+      {tools.length ? <ToolParts parts={tools} actions={actions} latest={latest} /> : null}
       {notice && notice.data.kind === "sign_in_required" ? (
         <p className="text-xs text-muted-foreground">
-          <Link href={`/s/${actions.slug}/signin?next=${encodeURIComponent(`/s/${actions.slug}/chat`)}`} className="font-semibold text-accent-strong hover:underline">
+          <Link href={actions.signInHref} className="font-semibold text-accent-strong hover:underline">
             Sign in
           </Link>{" "}
           so Nia can remember your preferences next time.

@@ -46,6 +46,20 @@ describe("memory policy", () => {
     expect(d.decision).toBe("ephemeral");
   });
 
+  it("keeps who they shop for even when it is about this purchase", () => {
+    const d = classifyCandidate(
+      candidate({
+        type: "RELATIONSHIP_CONTEXT",
+        subject: "gift_recipient",
+        value: "sister",
+        statement: "Customer is buying a gift for their sister's birthday.",
+        durability: "short_term",
+        temporalScope: "this_order_only",
+      }),
+    );
+    expect(d.decision).toBe("durable");
+  });
+
   it("treats an explicit move as a correction that supersedes", () => {
     const d = classifyCandidate(
       candidate({

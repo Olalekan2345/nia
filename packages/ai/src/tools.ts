@@ -48,7 +48,7 @@ export interface NiaToolScope {
 
 type Fail = { ok: false; error: string; code?: "SIGN_IN_REQUIRED" | "MEMORY_OFF" | "NOT_FOUND" | "INVALID" };
 
-function fail(error: string, code?: Fail["code"]): Fail {
+export function fail(error: string, code?: Fail["code"]): Fail {
   return { ok: false, error, ...(code ? { code } : {}) };
 }
 
@@ -72,6 +72,11 @@ export function withMoneyLabels<T>(value: T, locale: string, currency?: string):
   return out as T;
 }
 
+/** Every tool result: errors become typed failures, amounts get human-readable labels. */
+export function toolGuard(merchant: Pick<Merchant, "locale" | "currency">) {
+  return <T,>(fn: () => Promise<T>) => guardRaw(async () => withMoneyLabels(await fn(), merchant.locale, merchant.currency));
+}
+
 async function guardRaw<T>(fn: () => Promise<T>): Promise<T | Fail> {
   try {
     return await fn();
@@ -92,8 +97,7 @@ const badId = (...ids: (string | undefined | null)[]) => ids.some((v) => v != nu
 export function createNiaTools(scope: NiaToolScope) {
   const { db, merchant } = scope;
   const m = merchant.id;
-  /** Every tool result: errors become typed failures, amounts get human-readable labels. */
-  const guard = <T,>(fn: () => Promise<T>) => guardRaw(async () => withMoneyLabels(await fn(), merchant.locale, merchant.currency));
+  const guard = toolGuard(merchant);
   const needCustomer = () => scope.customerId;
 
   return {

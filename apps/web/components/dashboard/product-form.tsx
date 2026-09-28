@@ -6,6 +6,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button, Card, CardBody, CardHeader, Field, Input, Select, Switch, Textarea } from "@nia/ui";
 import { INVENTORY_LABELS, INVENTORY_STATUSES, type InventoryStatus } from "@nia/shared";
 import { saveProductAction } from "@/app/actions/dashboard";
+import { ImagesField } from "./images-field";
 
 export interface ProductFormValue {
   id?: string;
@@ -121,9 +122,10 @@ export function ProductForm({ merchantId, initial, currency }: { merchantId: str
           <Field label="Tags" htmlFor="tags" className="sm:col-span-3" hint="Comma separated — helps Nia find it (e.g. wedding, cotton)">
             <Input id="tags" value={v.tags} onChange={(e) => set("tags", e.target.value)} />
           </Field>
-          <Field label="Image URLs" htmlFor="images" className="sm:col-span-4" hint="HTTPS links, one per line. Without photos Nia shows a clean generated swatch.">
-            <Textarea id="images" value={v.images} onChange={(e) => set("images", e.target.value)} rows={2} />
-          </Field>
+          <div className="sm:col-span-4">
+            <p className="mb-2 text-sm font-semibold">Photos</p>
+            <ImagesField merchantId={merchantId} value={v.images.split(/\s+/).filter(Boolean)} onChange={(next) => set("images", next.join("\n"))} />
+          </div>
         </CardBody>
       </Card>
 

@@ -13,12 +13,15 @@ import { CANONICAL_SUBJECTS, ExtractionResultSchema, MemoryCandidateSchema, norm
 import { redactSensitive } from "@nia/shared";
 import type { Merchant } from "@nia/database";
 import { buildExtractionPrompt } from "./prompts";
+import { splitAskedQuestion } from "./decisions";
 import { callSettings } from "./provider";
 
 export interface ExtractionInput {
   model: LanguageModel;
   merchant: Merchant;
   userText: string;
+  /** The decision question the customer's message answers, e.g. "Who is it for? (Me / A gift)". */
+  answering?: string | null;
   assistantText: string;
   previousTurns: { role: "user" | "assistant"; text: string }[];
   recalled: RecalledMemory[];
@@ -65,8 +68,14 @@ export async function extractMemories(input: ExtractionInput): Promise<{ candida
     : "(none)";
   const context = input.previousTurns
     .slice(-4)
-    .map((t) => `${t.role === "user" ? "Customer" : "Nia"}: ${redactSensitive(t.text).text.slice(0, 600)}`)
+    .map((t) => {
+      if (t.role === "user") return `Customer: ${redactSensitive(t.text).text.slice(0, 600)}`;
+      // Keep Nia's question even when her reply is long — it gives short answers their meaning.
+      const { body, asked } = splitAskedQuestion(redactSensitive(t.text).text);
+      return `Nia: ${body.slice(0, 500)}${asked ? `\nNia asked: ${asked.slice(0, 300)}` : ""}`;
+    })
     .join("\n");
+  const answering = input.answering ? `The customer is answering Nia's question: ${redactSensitive(input.answering).text.slice(0, 300)}\n` : "";
 
   const prompt = `Recalled memories (data, may be outdated):
 ${recalledBlock}
@@ -75,7 +84,7 @@ Earlier in the conversation:
 ${context || "(start of conversation)"}
 
 LATEST EXCHANGE
-Customer: ${redactSensitive(input.userText).text.slice(0, 2000)}
+${answering}Customer: ${redactSensitive(input.userText).text.slice(0, 2000)}
 Nia: ${redactSensitive(input.assistantText).text.slice(0, 1200)}
 
 Extract memory candidates from the customer's latest message (use the rest only as context).`;

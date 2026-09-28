@@ -1,0 +1,87 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { Search, Sparkles, UserRound } from "lucide-react";
+import { Mascot, buttonClasses } from "@nia/ui";
+import { CompareTray } from "@/components/market/compare-controls";
+import { getSessionUser } from "@/lib/auth";
+
+export const metadata: Metadata = {
+  title: { default: "Walrus Market", template: "%s · Walrus Market" },
+  description: "Discover products and services from independent shops in one place — and let Nia help you choose. Memory on Walrus.",
+};
+
+export default async function MarketLayout({ children }: { children: React.ReactNode }) {
+  const user = await getSessionUser();
+  return (
+    <div className="min-h-dvh">
+      <header className="sticky top-0 z-30 border-b border-border/70 bg-background/85 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 md:px-6">
+          <Link href="/market" className="flex shrink-0 items-center gap-2 rounded-xl" aria-label="Walrus Market home">
+            <Mascot size={34} decorative />
+            <span className="leading-tight">
+              <span className="block text-base font-extrabold tracking-tight">Walrus Market</span>
+              <span className="block text-[11px] font-medium text-muted-foreground">with Nia</span>
+            </span>
+          </Link>
+          <form action="/market" className="relative mx-auto hidden w-full max-w-md md:block" role="search">
+            <label htmlFor="market-q" className="sr-only">
+              Search Walrus Market
+            </label>
+            <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <input
+              id="market-q"
+              name="q"
+              type="search"
+              placeholder="Search fabric, cakes, hair care…"
+              className="h-11 w-full rounded-2xl border border-border bg-surface pr-4 pl-10 text-[15px] placeholder:text-muted-foreground/80 focus-visible:border-accent focus-visible:ring-4 focus-visible:ring-ring/20 focus-visible:outline-none"
+            />
+          </form>
+          <nav className="ml-auto flex items-center gap-1.5 md:ml-0" aria-label="Market">
+            <Link href="/market/nia" className={buttonClasses({ size: "sm" })}>
+              <Sparkles className="size-4" aria-hidden="true" /> Ask Nia
+            </Link>
+            {user ? (
+              <Link href="/market/profile" className="grid size-10 place-items-center rounded-xl text-muted-foreground hover:bg-surface-2 hover:text-foreground" aria-label="Your market profile">
+                <UserRound className="size-5" aria-hidden="true" />
+              </Link>
+            ) : (
+              <Link href="/market/signin" className={buttonClasses({ variant: "ghost", size: "sm" })}>
+                Sign in
+              </Link>
+            )}
+          </nav>
+        </div>
+        <form action="/market" className="px-4 pb-3 md:hidden" role="search">
+          <label htmlFor="market-q-m" className="sr-only">
+            Search Walrus Market
+          </label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <input
+              id="market-q-m"
+              name="q"
+              type="search"
+              placeholder="Search fabric, cakes, hair care…"
+              className="h-11 w-full rounded-2xl border border-border bg-surface pr-4 pl-10 text-[16px] placeholder:text-muted-foreground/80 focus-visible:border-accent focus-visible:ring-4 focus-visible:ring-ring/20 focus-visible:outline-none"
+            />
+          </div>
+        </form>
+      </header>
+      {children}
+      <CompareTray />
+      <footer className="border-t border-border py-8 text-sm text-muted-foreground">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 md:px-6">
+          <p>Shops set their own prices, stock and delivery. Demo shops are fictional businesses for trying Nia.</p>
+          <nav className="flex gap-4" aria-label="Footer">
+            <Link href="/" className="hover:text-foreground">
+              About Nia
+            </Link>
+            <Link href="/signin?next=/onboarding" className="hover:text-foreground">
+              Sell on Walrus Market
+            </Link>
+          </nav>
+        </div>
+      </footer>
+    </div>
+  );
+}

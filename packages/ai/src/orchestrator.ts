@@ -8,10 +8,10 @@
  *   5. generate (streamed on web)
  *   6. extract → classify → persist approved memories (after the reply)
  */
-import type { ModelMessage } from "ai";
+import type { ModelMessage, ToolSet } from "ai";
 import { and, eq, sql } from "drizzle-orm";
-import { customers, memoryRecords, merchantKnowledge, products, services, type Conversation, type Customer, type Db, type MemoryUsage, type Merchant } from "@nia/database";
-import { getDraft, orderSummary, type OrderSummaryData } from "@nia/commerce";
+import { customers, memoryRecords, merchantKnowledge, messages, products, services, type Conversation, type Customer, type Db, type MemoryUsage, type Merchant } from "@nia/database";
+import { getDraft, marketShopsWithCategories, orderSummary, type OrderSummaryData } from "@nia/commerce";
 import {
   buildRecallQueries,
   isForgetRequest,
@@ -25,9 +25,11 @@ import {
   type RecalledMemory,
 } from "@nia/memory";
 import { redactSensitive, type Channel, type MemoryScope } from "@nia/shared";
-import { buildSystemPrompt, formatCart, formatKnowledge, formatRecalledMemories } from "./prompts";
+import { buildMarketSystemPrompt, buildSystemPrompt, formatCart, formatKnowledge, formatRecalledMemories } from "./prompts";
 import { createNiaTools, type NiaToolScope, type NiaTools } from "./tools";
+import { createMarketTools, type MarketTools } from "./market-tools";
 import { extractMemories } from "./extraction";
+import { decisionAnswer, splitAskedQuestion, type AskedDecision } from "./decisions";
 import { callSettings, getExtractionModel } from "./provider";
 import { loadHistory } from "./conversations";
 import type { ExtractionDecisionView, MemoryReceiptView, RecalledMemoryView } from "./ui-types";
@@ -45,7 +47,8 @@ export interface TurnContext {
 export interface PreparedTurn {
   system: string;
   messages: ModelMessage[];
-  tools: NiaTools;
+  /** Shop tools, or the Walrus Market guide's tools when the merchant is the market. */
+  tools: ToolSet;
   scope: NiaToolScope;
   userText: string;
   history: { id: string; role: "user" | "assistant"; text: string }[];
@@ -55,7 +58,7 @@ export interface PreparedTurn {
   recallError?: string;
   cart: OrderSummaryData | null;
   /** Tools offered this turn (only the relevant ones — keeps prompts small for rate-limited providers). */
-  activeTools: (keyof NiaTools)[];
+  activeTools: string[];
   /** Provider-specific retry budget (e.g. Groq rate limits). */
   maxRetries: number;
 }
@@ -125,6 +128,20 @@ export function selectTools(o: {
 const BOOKING_TALK = /\b(?:book(?:ing)?|appointment|slot|schedul\w*|reserv\w*|availab\w*|when can|come in|fitting|session|consult\w*|tailor\w*|sew\w*|alteration)\b/i;
 const ORDER_TALK = /\b(?:buy|order|add|cart|checkout|check out|pay|deliver\w*|pick ?up|collect|ship\w*|quantity|yards?|remove|change|swap|instead)\b/i;
 
+/** Model steps per reply. The last one may not call tools, so every reply ends in words. */
+export const MAX_STEPS = 6;
+export function answerOnLastStep({ stepNumber }: { stepNumber: number }): { toolChoice?: "none" } {
+  return stepNumber >= MAX_STEPS - 1 ? { toolChoice: "none" } : {};
+}
+
+/** Walrus Market guide: always search/compare/ask; memory tools only when they can help. */
+export function selectMarketTools(o: { memoryOn: boolean; customerHasMemory: boolean; recalledCustomer: boolean; forgetRequested: boolean }): (keyof MarketTools)[] {
+  const tools: (keyof MarketTools)[] = ["searchMarket", "searchMarketServices", "compareProducts", "askDecision"];
+  if (o.memoryOn && o.customerHasMemory && !o.recalledCustomer) tools.push("recallCustomerMemory");
+  if (o.memoryOn && o.recalledCustomer && o.forgetRequested) tools.push("forgetCustomerMemory");
+  return tools;
+}
+
 /** Does this customer (incl. merged records) / this shop have any stored, non-forgotten memory? */
 async function memoryPresence(db: Db, merchantId: string, customerId: string | null): Promise<{ customerHasMemory: boolean; merchantScopes: MemoryScope[] }> {
   const [row] = await db
@@ -168,8 +185,10 @@ export async function prepareTurn(ctx: TurnContext, rawUserText: string, opts: {
     : { customerHasMemory: false, merchantScopes: [] as MemoryScope[] };
   const merchantHasMemory = merchantScopes.length > 0;
 
+  // The Walrus Market record sells nothing itself: no shop policies, cart or business memory.
+  const isMarket = merchant.kind === "market";
   let recallError: string | undefined;
-  const [customerMemories, merchantMemories, knowledge, cart, hasServices, hasProducts] = await Promise.all([
+  const [customerMemories, merchantMemories, knowledge, cart, hasServices, hasProducts, shops] = await Promise.all([
     mode === "on" && customer && store && customerHasMemory
       ? recallCustomerMemory(db, store, { merchantId: merchant.id, customerId: customer.id, query: queries, limit: 6 }).catch((err: Error) => {
           console.warn("[memory] customer recall failed", err.message.slice(0, 200));
@@ -177,18 +196,19 @@ export async function prepareTurn(ctx: TurnContext, rawUserText: string, opts: {
           return [] as RecalledMemory[];
         })
       : Promise.resolve([] as RecalledMemory[]),
-    store && merchantHasMemory
+    store && merchantHasMemory && !isMarket
       ? recallMerchantMemory(db, store, { merchantId: merchant.id, query, limit: 3, scopes: merchantScopes }).catch((err: Error) => {
           console.warn("[memory] business recall failed", err.message.slice(0, 200));
           recallError ??= `Business memory recall failed: ${err.message.slice(0, 160)}`;
           return [] as RecalledMemory[];
         })
       : Promise.resolve([] as RecalledMemory[]),
-    relevantKnowledge(db, merchant.id, userText),
-    customer ? getDraft(db, merchant.id, customer.id).then((d) => (d ? orderSummary(db, merchant.id, d.id) : null)) : Promise.resolve(null),
+    isMarket ? Promise.resolve([]) : relevantKnowledge(db, merchant.id, userText),
+    customer && !isMarket ? getDraft(db, merchant.id, customer.id).then((d) => (d ? orderSummary(db, merchant.id, d.id) : null)) : Promise.resolve(null),
     // Does the shop offer services? Decides whether booking tools are offered.
     db.select({ id: services.id }).from(services).where(and(eq(services.merchantId, merchant.id), eq(services.active, true))).limit(1).then((r) => r.length > 0),
     db.select({ id: products.id }).from(products).where(and(eq(products.merchantId, merchant.id), eq(products.active, true))).limit(1).then((r) => r.length > 0),
+    isMarket ? marketShopsWithCategories(db) : Promise.resolve([]),
   ]);
   const recentTalk = userTurns.slice(-3).join(" ");
 
@@ -205,12 +225,26 @@ export async function prepareTurn(ctx: TurnContext, rawUserText: string, opts: {
     flags: { memoryAssisted: false, forgotten: [] },
   };
 
-  const system = [
+  const customerView = customer ? { signedIn: true, name: customer.displayName, memoryEnabled: customer.memoryEnabled } : null;
+  const system = isMarket
+    ? [
+        buildMarketSystemPrompt({
+          now,
+          timeZone: merchant.timezone,
+          customer: customerView,
+          memoryMode: mode,
+          shops: shops.map((sh) => ({ name: sh.name, slug: sh.slug, type: sh.businessLabel, city: sh.city, demo: sh.isDemo, categories: sh.categories })),
+        }),
+        mode === "on" ? formatRecalledMemories(customerMemories, [], merchant.timezone) : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n")
+    : [
     buildSystemPrompt({
       merchant,
       channel,
       now,
-      customer: customer ? { signedIn: true, name: customer.displayName, memoryEnabled: customer.memoryEnabled } : null,
+      customer: customerView,
       memoryMode: mode,
       memoryConfigured: Boolean(store),
     }),
@@ -229,8 +263,10 @@ export async function prepareTurn(ctx: TurnContext, rawUserText: string, opts: {
   return {
     system,
     messages,
-    tools: createNiaTools(scope),
-    activeTools: selectTools({
+    tools: isMarket ? createMarketTools(scope) : createNiaTools(scope),
+    activeTools: isMarket
+      ? selectMarketTools({ memoryOn: mode === "on", customerHasMemory, recalledCustomer: customerMemories.length > 0, forgetRequested: isForgetRequest(userText) })
+      : selectTools({
       signedIn: Boolean(customer),
       memoryOn: mode === "on",
       hasServices,
@@ -310,6 +346,14 @@ export interface AfterTurnResult {
   error?: string;
 }
 
+/** The decision question (askDecision) in a stored assistant message, if it asked one. */
+async function askedDecisionIn(db: Db, messageId: string): Promise<AskedDecision | null> {
+  const [row] = await db.select({ parts: messages.parts }).from(messages).where(eq(messages.id, messageId)).limit(1);
+  const parts = (Array.isArray(row?.parts) ? row.parts : []) as { type?: string; input?: Partial<AskedDecision> }[];
+  const input = parts.findLast((p) => p.type === "tool-askDecision")?.input;
+  return input && typeof input.question === "string" && Array.isArray(input.options) ? { question: input.question, options: input.options.map(String), topic: input.topic } : null;
+}
+
 export async function extractAndRemember(
   ctx: TurnContext,
   turn: PreparedTurn,
@@ -317,17 +361,26 @@ export async function extractAndRemember(
 ): Promise<AfterTurnResult> {
   const { db, store, merchant, customer, conversation, channel } = ctx;
   if (!customer || turn.memoryMode === "off" || !store) return { ran: false, outcomes: [] };
-  if (!shouldExtract(turn.userText)) return { ran: false, outcomes: [] };
+  // A tapped answer ("Emerald") is short, but it answers Nia's question — always worth a look.
+  const lastNia = turn.history.findLast((h) => h.role === "assistant");
+  const answering = lastNia ? splitAskedQuestion(lastNia.text).asked : null;
+  if (!answering && !shouldExtract(turn.userText)) return { ran: false, outcomes: [] };
 
-  const { candidates, error } = await extractMemories({
-    model: getExtractionModel(),
-    merchant,
-    userText: turn.userText,
-    assistantText,
-    previousTurns: turn.history.map((h) => ({ role: h.role, text: h.text })),
-    recalled: turn.scope.recalled.customer,
-    now: ctx.now ?? new Date(),
-  });
+  // A tapped option is the shopper's own answer: record it as chosen, no model call needed.
+  const decision = answering && lastNia ? await askedDecisionIn(db, lastNia.id) : null;
+  const tapped = decision ? decisionAnswer(decision, turn.userText) : { tapped: false, candidate: null };
+  const { candidates, error } = tapped.tapped
+    ? { candidates: tapped.candidate ? [tapped.candidate] : [], error: undefined }
+    : await extractMemories({
+        model: getExtractionModel(),
+        merchant,
+        userText: turn.userText,
+        answering,
+        assistantText,
+        previousTurns: turn.history.map((h) => ({ role: h.role, text: h.text })),
+        recalled: turn.scope.recalled.customer,
+        now: ctx.now ?? new Date(),
+      });
   if (candidates.length === 0) return { ran: true, outcomes: [], error };
 
   const outcomes = await processCandidates(db, store, {

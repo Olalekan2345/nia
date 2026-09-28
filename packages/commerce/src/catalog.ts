@@ -110,10 +110,13 @@ export interface ProductSearchInput {
   limit?: number;
 }
 
-export async function searchProducts(db: Db, merchantId: string, input: ProductSearchInput = {}): Promise<ProductCardData[]> {
-  const limit = Math.min(Math.max(input.limit ?? 6, 1), 24);
+/** One shop (its id) or several (Walrus Market passes every live shop). */
+export async function searchProducts(db: Db, merchantId: string | string[], input: ProductSearchInput = {}): Promise<ProductCardData[]> {
+  const limit = Math.min(Math.max(input.limit ?? 6, 1), 48);
   const tokens = tokenize(input.query ?? "");
-  const conditions: SQL[] = [eq(products.merchantId, merchantId), eq(products.active, true)];
+  const merchantIds = Array.isArray(merchantId) ? merchantId : [merchantId];
+  if (merchantIds.length === 0) return [];
+  const conditions: SQL[] = [inArray(products.merchantId, merchantIds), eq(products.active, true)];
   if (input.kinds?.length) {
     conditions.push(inArray(products.kind, input.kinds.filter((k): k is Product["kind"] => ["PRODUCT", "CUSTOM_ORDER", "PACKAGE"].includes(k))));
   }
@@ -133,7 +136,7 @@ export async function searchProducts(db: Db, merchantId: string, input: ProductS
   const variants = await db
     .select()
     .from(productVariants)
-    .where(and(eq(productVariants.merchantId, merchantId), inArray(productVariants.productId, rows.map((r) => r.id))));
+    .where(and(inArray(productVariants.merchantId, merchantIds), inArray(productVariants.productId, rows.map((r) => r.id))));
   const byProduct = new Map<string, ProductVariant[]>();
   for (const v of variants) byProduct.set(v.productId, [...(byProduct.get(v.productId) ?? []), v]);
 
@@ -214,6 +217,7 @@ export async function serviceCard(db: Db, s: Service, timeZone: string, now = ne
     bookingRequirements: s.bookingRequirements,
     options: s.options,
     nextAvailable: next?.startAt ?? null,
+    image: s.images[0] ?? null,
   };
 }
 

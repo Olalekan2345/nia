@@ -63,6 +63,7 @@ export interface ServiceCardData {
   options: { name: string; priceDelta?: number | null; durationDelta?: number | null }[];
   /** ISO start of the next open slot, when availability is configured. */
   nextAvailable: string | null;
+  image: string | null;
 }
 
 export interface OrderLineData {

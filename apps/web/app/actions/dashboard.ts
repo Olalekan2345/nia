@@ -272,6 +272,13 @@ const VariantInput = z.object({
   active: z.boolean(),
 });
 
+/** An uploaded photo (/api/media/<id>), a bundled stock photo (/stock/…), or an https:// link. */
+const imageRef = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((s) => /^https:\/\//.test(s) || /^\/api\/media\/[0-9a-f-]{36}$/i.test(s) || /^\/stock\/[a-z0-9-]+\.(jpg|jpeg|png|webp)$/.test(s), "Use an uploaded photo or an https:// link.");
+
 const ProductInput = z.object({
   id: z.string().uuid().optional(),
   kind: z.enum(["PRODUCT", "CUSTOM_ORDER", "PACKAGE"]),
@@ -284,7 +291,7 @@ const ProductInput = z.object({
   inventoryStatus: z.enum(INVENTORY_STATUSES),
   stockQuantity: z.number().int().min(0).max(1e6).nullable(),
   tags: z.array(z.string().trim().min(1).max(30)).max(20),
-  images: z.array(z.string().trim().url().max(500)).max(8),
+  images: z.array(imageRef).max(8),
   active: z.boolean(),
   variants: z.array(VariantInput).max(60),
 });

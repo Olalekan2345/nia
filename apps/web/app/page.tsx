@@ -71,6 +71,7 @@ function SiteHeader() {
         <NiaLogo />
         <nav aria-label="Primary" className="hidden items-center gap-1 md:flex">
           {[
+            ["Walrus Market", "/market"],
             ["How it works", "#how"],
             ["Walrus Memory", "#walrus"],
             ["Privacy", "#privacy"],
@@ -110,8 +111,8 @@ function Hero() {
             <Link href="/try" className={buttonClasses({ size: "lg" })}>
               Try Nia <ArrowRight className="size-4" aria-hidden="true" />
             </Link>
-            <Link href="/signin?next=/onboarding" className={buttonClasses({ variant: "secondary", size: "lg" })}>
-              For businesses
+            <Link href="/market" className={buttonClasses({ variant: "secondary", size: "lg" })}>
+              Browse Walrus Market
             </Link>
           </div>
           <ul className="mt-8 grid max-w-lg gap-2.5 text-sm text-muted-foreground sm:grid-cols-2">
