@@ -13,6 +13,14 @@ test("landing page explains Nia and links to the demo", async ({ page }) => {
   await expect(page.getByText("Example", { exact: true }).first()).toBeAttached();
   await expect(page.getByText("Built on Walrus Memory")).toBeAttached();
   await expect(page.getByRole("link", { name: "Browse Walrus Market" })).toHaveAttribute("href", "/market");
+
+  // Nia's back-to-top button: hidden at the top, offered further down, and it works.
+  const backToTop = page.getByRole("button", { name: "Back to the top" });
+  await expect(backToTop).toHaveCount(0);
+  await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "instant" }));
+  await backToTop.click();
+  await expect.poll(() => page.evaluate(() => window.scrollY), { timeout: 10_000 }).toBeLessThan(5);
+  await expect(page.locator("#hero-title")).toBeFocused();
 });
 
 test("demo picker shows shops from different business types", async ({ page }) => {

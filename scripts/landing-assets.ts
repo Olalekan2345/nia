@@ -28,6 +28,24 @@ const SCENES: Record<string, string> = {
   cta: "005_5FCE3601-9FFB-4970-B529-2DF319BB1D72.jpg", // peace sign under a bright arch
 };
 
+/** Small crops for UI (fractions of the source's width/height). */
+const CROPS: Record<string, { file: string; left: number; top: number; size: number; px: number }> = {
+  // Back-to-top button: face and the raised peace-sign paw, which reads as "up".
+  "back-to-top": { file: SCENES.hero!, left: 0.12, top: 0, size: 0.574, px: 256 },
+};
+
+for (const [name, c] of Object.entries(CROPS)) {
+  const input = path.join(src, c.file);
+  const meta = await sharp(input).metadata();
+  const side = Math.round(meta.width! * c.size);
+  const info = await sharp(input)
+    .extract({ left: Math.round(meta.width! * c.left), top: Math.round(meta.height! * c.top), width: side, height: side })
+    .resize(c.px, c.px, { kernel: "lanczos3" })
+    .webp({ quality: 86 })
+    .toFile(path.join(out, `nia-${name}.webp`));
+  console.log(`✓ nia-${name}.webp  ${info.width}×${info.height}  ${Math.round(info.size / 1024)} KB`);
+}
+
 for (const [name, file] of Object.entries(SCENES)) {
   const input = path.join(src, file);
   if (!existsSync(input)) throw new Error(`Missing brand/landing/${file} (scene "${name}")`);

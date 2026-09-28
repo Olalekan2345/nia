@@ -26,7 +26,7 @@ export function Hero() {
             AI shopping &amp; service assistant
           </p>
 
-          <h1 id="hero-title" className={displayClass("xl") + " mt-6 text-foreground"}>
+          <h1 id="hero-title" tabIndex={-1} className={displayClass("xl") + " mt-6 scroll-mt-32 text-foreground"}>
             {LINES.map((line, i) => (
               <span key={line} className={i === LINES.length - 1 ? "-mb-[0.2em] block overflow-hidden pb-[0.2em]" : "-mb-[0.1em] block overflow-hidden pb-[0.1em]"}>
                 <span className="nia-in block" style={enter(0.08 + i * 0.09, "nia-rise", 1)}>

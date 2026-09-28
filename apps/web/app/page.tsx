@@ -1,3 +1,4 @@
+import { BackToTop } from "@/components/landing/back-to-top";
 import { BusinessTypes } from "@/components/landing/business-types";
 import { CrossChannelFlow } from "@/components/landing/cross-channel-flow";
 import { FinalCTA } from "@/components/landing/final-cta";
@@ -45,6 +46,7 @@ export default function LandingPage() {
           <FinalCTA />
         </main>
         <SiteFooter telegramUrl={telegramUrl} />
+        <BackToTop targetId="hero-title" />
       </div>
     </LandingMotion>
   );
