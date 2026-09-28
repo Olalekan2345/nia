@@ -36,6 +36,12 @@ Nia: multi-merchant AI shopping & service assistant (web chat + Telegram) with d
 - Live-verified locally (real Groq + Walrus Mainnet): 3 decision answers stored and shown on the market profile + "For you".
 - **Deployed 2026-09-28** (commit b24f38a): migration 0003 + seed applied to Neon (market row, stock photos on 12/14 demo products); https://nia-pearl.vercel.app/market live.
 
+## Landing page (2026-09-28)
+- `apps/web/app/page.tsx` composes `components/landing/*` (one file per scene). Forced light tokens via `.nia-light`; the hero entrance/float are CSS (`.nia-in`, `.nia-float`) so they run before hydration; everything else uses `motion` (LazyMotion + `m`, MotionConfig reducedMotion="user"). No GSAP.
+- Sticky scroll scenes (problem, memory, web→Telegram) are desktop-only; mobile gets stacked versions; reduced motion gets the finished composition (`still`). **Map scroll progress with `useRange`** (a function transform): motion's accelerated scroll timelines mis-map opacity inside sticky scenes. Use `usePrefersReducedMotion` (hydration-safe), not motion's `useReducedMotion`.
+- Artwork: `brand/landing/` → `pnpm brand:landing` → `public/landing/nia-<scene>.webp`, rendered with `<SceneArt>`. Only the hero is `priority`.
+- Examples are labelled "Example" / "Sample data"; the only live values are real links (the t.me bot via `botLink()`, GitHub docs).
+
 ## Status (2026-09-28)
 Verified with real credentials (2026-09-28): `pnpm walrus:health` (mainnet), `pnpm test:walrus`, `pnpm test:ai` (Qwen extraction), and the flagship browser flow on Mainnet + Groq: preferences → 3 stored receipts → new chat recall → Yaba correction (supersedes, keeps Lekki as history) → new chat answers “Lekki before, Yaba now” → Memory Passport.
 Finished & verified locally: landing; storefront (home, shop, product, chat, orders/cart, profile + Memory Passport + Telegram connect, sign-in); chat streaming with cards/receipts/recall chips; dashboard (overview, conversations, customers + detail + owner restore, catalog editors, orders + detail + transitions, bookings, memory explorer with relayer counts, settings incl. knowledge/Telegram/team, judge mode with before/after); onboarding; Telegram webhook + bot CLI; Paystack webhook; health endpoint; docs.

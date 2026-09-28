@@ -112,6 +112,7 @@ In production use a real HTTPS webhook: `pnpm telegram:webhook -- set`. See [doc
 | `pnpm walrus:health` / `pnpm walrus:restore -- <namespace>` | Relayer health; admin re-index utility |
 | `pnpm telegram:webhook -- set|info|delete|profile` / `pnpm bot:poll` | Telegram helpers |
 | `pnpm brand:icons` | Build the mascot, icons, favicon, Telegram avatar and social card from `brand/nia-mascot.*` |
+| `pnpm brand:landing` | Build the landing page scene artwork from `brand/landing/` (mapping in `scripts/landing-assets.ts`) |
 
 ## Tests
 

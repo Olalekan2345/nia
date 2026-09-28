@@ -29,6 +29,7 @@ Nia the walrus: aqua, winking, lavender hair, holographic visor, ivory tusks. Ar
 
 - `<Mascot>` (packages/ui): the face in a holographic ring. States show through the ring and a badge — idle, greeting (a small bob), thinking (spinning ring), recalling and remembering (glow; remembering adds a sparkle), order/booking success (check), privacy (lock), warning (amber). Motion only when the user allows it.
 - `<MascotArt>` (apps/web): the full artwork for large placements.
+- Landing scenes (`brand/landing/` → `pnpm brand:landing` → `<SceneArt scene="…">`): full-body illustrations, always shown whole in rounded frames (never cropped to a circle). `brand/README.md` lists which picture each section uses.
 - Telegram bot photo: upload `apps/web/public/brand/nia-telegram-avatar.jpg` via @BotFather → /setuserpic.
 
 ## Voice

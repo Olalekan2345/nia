@@ -4,7 +4,15 @@ test("landing page explains Nia and links to the demo", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Every customer deserves to feel remembered.");
   await expect(page.getByRole("link", { name: "Try Nia" }).first()).toBeVisible();
-  await expect(page.getByText("Built on Walrus Memory")).toBeVisible();
+  // The hero artwork is the one eagerly loaded image, and it actually decodes.
+  const hero = page.getByRole("img", { name: /Nia, the walrus shopping assistant/ });
+  await expect(hero).toBeVisible();
+  expect(await hero.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
+  // Nav anchors land on real sections; examples are labelled as examples.
+  for (const id of ["how", "business", "memory", "telegram"]) await expect(page.locator(`#${id}`)).toHaveCount(1);
+  await expect(page.getByText("Example", { exact: true }).first()).toBeAttached();
+  await expect(page.getByText("Built on Walrus Memory")).toBeAttached();
+  await expect(page.getByRole("link", { name: "Browse Walrus Market" })).toHaveAttribute("href", "/market");
 });
 
 test("demo picker shows shops from different business types", async ({ page }) => {
