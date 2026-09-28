@@ -1,0 +1,290 @@
+@import "tailwindcss";
+@source "../../../packages/ui/src";
+
+/*
+ * Nia design tokens — see /brand.md.
+ * Graphite + warm off-white foundation, tide (aqua/cyan) accent, mint for
+ * memory success, cobalt for info. All text pairs are checked for WCAG AA.
+ */
+
+@theme {
+  --color-graphite-950: #0b0e13;
+  --color-graphite-900: #11151c;
+  --color-graphite-800: #1b2230;
+  --color-graphite-700: #2a3342;
+  --color-graphite-500: #5b6472;
+  --color-graphite-300: #c3cad4;
+  --color-paper: #f7f6f2;
+  --color-tide-50: #ecfafb;
+  --color-tide-100: #d3f3f6;
+  --color-tide-200: #a8e6ed;
+  --color-tide-300: #6fd6e2;
+  --color-tide-400: #2ec4d6;
+  --color-tide-500: #0fa3b5;
+  --color-tide-600: #0a7a89;
+  --color-tide-700: #086a77;
+  --color-mint-100: #ddf7ee;
+  --color-mint-300: #8fe3c7;
+  --color-mint-500: #2fbf8f;
+  --color-cobalt-500: #2f54eb;
+
+  --ease-out-soft: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-soft: cubic-bezier(0.4, 0, 1, 1);
+}
+
+@theme inline {
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", Consolas, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-memory: var(--memory);
+  --color-memory-soft: var(--memory-soft);
+  --color-chart-1: var(--chart-1);
+}
+
+:root {
+  color-scheme: light;
+  --background: #f7f6f2;
+  --foreground: #0e1116;
+  --surface: #ffffff;
+  --surface-2: #f0efea;
+  --border: #e5e3dc;
+  --muted-foreground: #5b6472; /* 5.5:1 on background */
+  --primary: #11151c;
+  --primary-foreground: #ffffff;
+  --accent: #0a7a89; /* 5.0:1 with white */
+  --accent-foreground: #ffffff;
+  --accent-strong: #086a77; /* accent text on light surfaces */
+  --accent-soft: #e3f6f8;
+  --ring: #0a7a89;
+  --success: #177a53;
+  --success-soft: #e3f5ec;
+  --warning: #9a5a06;
+  --warning-soft: #fdf3e1;
+  --danger: #c8323a;
+  --danger-soft: #fdecec;
+  --info: #2f54eb;
+  --info-soft: #eef2ff;
+  --memory: #177a53;
+  --memory-soft: #e1f6ee;
+  --chart-1: #0b8fa1; /* validated: chroma, lightness band, 3:1 on light surface */
+  --shadow-float: 0 1px 2px rgb(17 21 28 / 0.04), 0 8px 24px -8px rgb(17 21 28 / 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --background: #0b0e13;
+    --foreground: #e8ebef;
+    --surface: #12161d;
+    --surface-2: #181d26;
+    --border: #252c38;
+    --muted-foreground: #9aa3b2;
+    --primary: #e8ebef;
+    --primary-foreground: #0b0e13;
+    --accent: #3cc7d7;
+    --accent-foreground: #04222a;
+    --accent-strong: #5dd6e3;
+    --accent-soft: #0e2a31;
+    --ring: #5dd6e3;
+    --success: #4fd39f;
+    --success-soft: #0f2a21;
+    --warning: #f0b45b;
+    --warning-soft: #2c2210;
+    --danger: #f2777c;
+    --danger-soft: #2e1416;
+    --info: #8ea5ff;
+    --info-soft: #161d3a;
+    --memory: #4fd39f;
+    --memory-soft: #0f2a21;
+    --chart-1: #1fa2b4; /* validated against the dark surface */
+    --shadow-float: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px -12px rgb(0 0 0 / 0.6);
+  }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "ss01", "cv11";
+  }
+  ::selection {
+    background: color-mix(in oklab, var(--accent) 22%, transparent);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]) {
+    cursor: pointer;
+  }
+}
+
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@utility shadow-float {
+  box-shadow: var(--shadow-float);
+}
+
+@utility safe-bottom {
+  padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+}
+
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.nia-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235b6472' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* Soft brand wash — used sparingly behind hero and home surfaces. */
+.nia-wash {
+  background:
+    radial-gradient(60% 50% at 20% 10%, color-mix(in oklab, var(--color-tide-200) 45%, transparent), transparent 70%),
+    radial-gradient(50% 45% at 85% 20%, color-mix(in oklab, var(--color-mint-300) 30%, transparent), transparent 70%),
+    var(--background);
+}
+
+/* ─────────────────────────────── Mascot ─────────────────────────────── */
+
+.nia-mascot-wrap svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.nia-mascot-wrap .nia-eyes,
+.nia-mascot-wrap .nia-badge {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .nia-mascot-wrap .nia-body-group {
+    animation: nia-breathe 4.8s ease-in-out infinite;
+    transform-box: view-box;
+    transform-origin: 120px 208px;
+  }
+  .nia-mascot-wrap[data-state="idle"] .nia-eyes,
+  .nia-mascot-wrap[data-state="recalling"] .nia-eyes,
+  .nia-mascot-wrap[data-state="thinking"] .nia-eyes {
+    animation: nia-blink 6s ease-in-out infinite;
+  }
+  .nia-mascot-wrap[data-state="greeting"] .nia-flipper-right {
+    animation: nia-wave 1s ease-in-out 2;
+    transform-box: view-box;
+    transform-origin: 182px 156px;
+  }
+  .nia-mascot-wrap .nia-dot {
+    animation: nia-dot 1.2s ease-in-out infinite;
+  }
+  .nia-mascot-wrap .nia-dot-2 {
+    animation-delay: 0.15s;
+  }
+  .nia-mascot-wrap .nia-dot-3 {
+    animation-delay: 0.3s;
+  }
+  .nia-mascot-wrap .nia-ripple {
+    animation: nia-ripple 1.8s ease-out infinite;
+    transform-box: view-box;
+    transform-origin: 120px 120px;
+  }
+  .nia-mascot-wrap .nia-ripple-2 {
+    animation-delay: 0.9s;
+  }
+  .nia-mascot-wrap .nia-scan {
+    animation: nia-scan 1.6s ease-in-out infinite;
+  }
+  .nia-mascot-wrap .nia-badge {
+    animation: nia-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+  }
+  .nia-mascot-wrap[data-state="remembering"] .nia-halo,
+  .nia-mascot-wrap[data-state="recalling"] .nia-halo {
+    animation: nia-halo 1.6s ease-in-out infinite;
+  }
+}
+
+@keyframes nia-breathe {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-1.5px) scale(1.012); }
+}
+@keyframes nia-blink {
+  0%, 94%, 100% { transform: scaleY(1); }
+  96% { transform: scaleY(0.12); }
+}
+@keyframes nia-wave {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-16deg); }
+}
+@keyframes nia-dot {
+  0%, 100% { opacity: 0.25; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-3px); }
+}
+@keyframes nia-ripple {
+  0% { opacity: 0.7; transform: scale(0.78); }
+  100% { opacity: 0; transform: scale(1.12); }
+}
+@keyframes nia-scan {
+  0% { transform: translateX(0); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateX(96px); opacity: 0; }
+}
+@keyframes nia-pop {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes nia-halo {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+/* Memory ripple used on chips when a memory is confirmed stored. */
+@media (prefers-reduced-motion: no-preference) {
+  .nia-stored-ripple {
+    animation: nia-chip-ripple 0.9s ease-out 1;
+  }
+  .nia-enter {
+    animation: nia-enter 0.25s var(--ease-out-soft) both;
+  }
+}
+@keyframes nia-chip-ripple {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--memory) 45%, transparent); }
+  100% { box-shadow: 0 0 0 10px transparent; }
+}
+@keyframes nia-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}

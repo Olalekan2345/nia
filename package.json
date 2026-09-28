@@ -1,0 +1,64 @@
+{
+  "name": "nia",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Nia — the shop assistant who remembers your customers. Multi-merchant AI commerce assistant powered by Walrus Memory.",
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @nia/web dev",
+    "dev:db": "tsx packages/database/scripts/local-db.ts",
+    "build": "pnpm --filter @nia/web build",
+    "start": "pnpm --filter @nia/web start",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:walrus": "cross-env NIA_WALRUS_INTEGRATION=1 MEMWAL_RECALL_MAX_DISTANCE=0.8 vitest run packages/memory/test/walrus.integration.test.ts",
+    "test:e2e": "playwright test",
+    "db:generate": "drizzle-kit generate --config packages/database/drizzle.config.ts",
+    "db:migrate": "tsx packages/database/scripts/migrate.ts",
+    "db:seed": "tsx packages/database/scripts/seed.ts",
+    "db:setup": "pnpm db:migrate && pnpm db:seed",
+    "db:e2e": "tsx packages/database/scripts/prepare-e2e.ts",
+    "bot:poll": "pnpm --filter @nia/bot poll",
+    "telegram:webhook": "pnpm --filter @nia/bot webhook",
+    "walrus:health": "tsx packages/memory/scripts/health.ts",
+    "walrus:restore": "tsx packages/memory/scripts/restore.ts",
+    "brand:icons": "tsx scripts/render-brand-icons.ts",
+    "db:reset": "tsx packages/database/scripts/reset.ts",
+    "test:ai": "cross-env NIA_AI_INTEGRATION=1 vitest run packages/ai/test/ai.integration.test.ts"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.0",
+    "@playwright/test": "^1.63.0",
+    "@resvg/resvg-js": "2.6.2",
+    "@types/node": "^24.19.0",
+    "cross-env": "^10.1.0",
+    "dotenv": "^17.2.0",
+    "drizzle-kit": "^0.31.11",
+    "eslint": "^9.39.0",
+    "eslint-config-next": "16.3.6",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^16.4.0",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.0",
+    "vitest": "^5.0.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "@resvg/resvg-js",
+      "embedded-postgres",
+      "@embedded-postgres/windows-x64",
+      "@embedded-postgres/linux-x64",
+      "@embedded-postgres/darwin-arm64",
+      "@embedded-postgres/darwin-x64"
+    ]
+  },
+  "type": "module"
+}

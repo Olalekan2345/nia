@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD CONSTRAINT "users_has_identity" CHECK ("users"."email" is not null or "users"."telegram_user_id" is not null);

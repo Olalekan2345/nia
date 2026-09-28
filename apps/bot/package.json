@@ -1,0 +1,17 @@
+{
+  "name": "@nia/bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Telegram helpers: webhook management CLI and a local long-polling runner that forwards updates to the web app's webhook.",
+  "scripts": {
+    "webhook": "tsx src/webhook.ts",
+    "poll": "tsx src/poll.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@nia/config": "workspace:*",
+    "@nia/telegram": "workspace:*",
+    "dotenv": "^17.2.0"
+  }
+}
