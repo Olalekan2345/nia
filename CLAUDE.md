@@ -33,12 +33,18 @@ Verified with real credentials (2026-09-28): `pnpm walrus:health` (mainnet), `pn
 Finished & verified locally: landing; storefront (home, shop, product, chat, orders/cart, profile + Memory Passport + Telegram connect, sign-in); chat streaming with cards/receipts/recall chips; dashboard (overview, conversations, customers + detail + owner restore, catalog editors, orders + detail + transitions, bookings, memory explorer with relayer counts, settings incl. knowledge/Telegram/team, judge mode with before/after); onboarding; Telegram webhook + bot CLI; Paystack webhook; health endpoint; docs.
 Verified: 93 unit/integration tests, lint, typecheck (10 packages), `next build`, Playwright critical path (merchant onboarding → product → publish → customer order → cross-tenant 404 → merchant confirm).
 
-**Not yet verified with real credentials:** Telegram bot live (no token yet), Resend emails, deployment, `pnpm test:e2e` memory spec (Playwright doesn't load `.env`; export the keys first).
+**Not yet verified:** a real person completing Telegram sign-in on the live site (needs a tap in Telegram), Resend emails (not configured).
+
+## Deployment (live since 2026-09-28)
+- **Live:** https://nia-pearl.vercel.app — Vercel project `olalekan2345s-projects/nia`, root `apps/web`, region `cle1`. **Auto-deploys on every push to `main`** of https://github.com/Olalekan2345/nia (public).
+- DB: Neon (us-east-2). Its connection string is in local `.env` as `PRODUCTION_DATABASE_URL`; to migrate/seed it, pass it as `DATABASE_URL` to `pnpm db:migrate` / `pnpm db:seed`. Demo shops seeded; owner = the user's email + Telegram @Olalekan2345 (id 946176405) via `SEED_OWNER_TELEGRAM_ID`.
+- Vercel env vars were set through the API from `.env` values (own `AUTH_SECRET`, `MEMWAL_NAMESPACE_PREFIX=nia`, no `RESEND_API_KEY` → Telegram-only sign-in live). Production builds come from GitHub; `.vercelignore` keeps `.env` out of local `vercel deploy` uploads.
+- @nia_walbot's webhook points at the live site. **Don't run `pnpm bot:poll` with this bot** (it deletes the webhook); use a second bot for local development.
+- Groq free tier (7K input tokens/min) makes a product question take ~45 s or return the "busy" message — needs Groq Developer tier (or another provider) before real users.
 
 ## Next steps
-1. User: Telegram bot token (@BotFather) + Resend key when ready; consider Groq Developer tier before real users.
-2. Deploy (docs/DEPLOYMENT.md): Vercel root `apps/web`, Neon, env vars (incl. `AUTH_SECRET`), `pnpm telegram:webhook -- set`.
-3. Real users (≥3 × ≥10 memories), screenshots, article (docs/ARTICLE_DRAFT.md), X post, feedback form.
+1. User: upgrade Groq (or switch provider); optionally Resend for email sign-in.
+2. Real users (≥3 × ≥10 memories), screenshots, article (docs/ARTICLE_DRAFT.md), X post, feedback form.
 
 ## Known issues / notes
 - Local dev: earlier local test data was reset with `pnpm db:reset`; e2e runs create test shops (“E2E Linen …”) in the local DB.
