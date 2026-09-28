@@ -64,7 +64,8 @@ export function describeModel(): { provider: string | null; model: string | null
  * models (gpt-oss, qwen3); others (e.g. Llama 3.3) use JSON-object mode with
  * the schema in the prompt — the result is still validated by Zod.
  * Groq's free plan has low tokens-per-minute limits, so rate-limited calls are
- * retried with backoff.
+ * retried with backoff — but only twice: each wait is ~15 s and a serverless
+ * request has 60 s in total, so after that Nia says it's busy instead of hanging.
  */
 export function callSettings(role: "chat" | "extraction"): {
   maxRetries: number;
@@ -76,8 +77,28 @@ export function callSettings(role: "chat" | "extraction"): {
   const model = (role === "extraction" ? cfg.extractionModel : cfg.model) ?? "";
   const jsonSchema = /gpt-oss|qwen3|kimi-k2/i.test(model);
   return {
-    maxRetries: 4,
+    maxRetries: 2,
     schemaInPrompt: role === "extraction" && !jsonSchema,
     providerOptions: role === "extraction" ? { groq: { structuredOutputs: jsonSchema } } : undefined,
   };
+}
+
+/**
+ * A customer-facing message when the model provider is rate-limiting this
+ * deployment (HTTP 429, also inside the SDK's RetryError), or null.
+ */
+export function aiBusyMessage(err: unknown): string | null {
+  const parts: string[] = [];
+  let e: unknown = err;
+  for (let i = 0; i < 4 && e; i++) {
+    const x = e as { message?: string; statusCode?: number; lastError?: unknown; cause?: unknown };
+    if (x.statusCode === 429) parts.push("429");
+    if (typeof x.message === "string") parts.push(x.message);
+    e = x.lastError ?? x.cause;
+  }
+  const text = parts.join(" ");
+  if (!/\b429\b|rate limit/i.test(text)) return null;
+  const seconds = Number(/try again in (\d+(?:\.\d+)?)s/i.exec(text)?.[1]);
+  const wait = Number.isFinite(seconds) && seconds > 0 ? `about ${Math.ceil(seconds)} seconds` : "a few seconds";
+  return `Nia is getting a lot of messages right now. Please try again in ${wait}.`;
 }

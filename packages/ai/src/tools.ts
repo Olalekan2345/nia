@@ -29,7 +29,7 @@ import {
   updateDraftItem,
 } from "@nia/commerce";
 import { forgetMemory, forgetRecalledBlob, recallCustomerMemory, recallMerchantMemory, type MemoryStore, type RecalledMemory } from "@nia/memory";
-import { isAppError, toMinorUnits, type Channel } from "@nia/shared";
+import { formatMoney, isAppError, toMinorUnits, type Channel } from "@nia/shared";
 
 export interface NiaToolScope {
   db: Db;
@@ -52,7 +52,27 @@ function fail(error: string, code?: Fail["code"]): Fail {
   return { ok: false, error, ...(code ? { code } : {}) };
 }
 
-async function guard<T>(fn: () => Promise<T>): Promise<T | Fail> {
+const MONEY_FIELDS = new Set(["price", "priceMin", "priceMax", "unitPrice", "lineTotal", "deliveryFee", "subtotal", "total", "depositAmount"]);
+
+/**
+ * Amounts in tool results are minor units (kobo, cents) — exact, for the UI cards.
+ * A model reads `price: 750000` as ₦750,000, so every amount also gets a formatted
+ * `…Label` ("₦7,500") and the prompt says to quote only those.
+ */
+export function withMoneyLabels<T>(value: T, locale: string, currency?: string): T {
+  if (Array.isArray(value)) return value.map((v) => withMoneyLabels(v, locale, currency)) as T;
+  if (!value || typeof value !== "object" || value instanceof Date) return value;
+  const obj = value as Record<string, unknown>;
+  const cur = typeof obj.currency === "string" ? obj.currency : currency;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    out[k] = withMoneyLabels(v, locale, cur);
+    if (cur && MONEY_FIELDS.has(k) && typeof v === "number") out[`${k}Label`] = formatMoney(v, cur, { locale });
+  }
+  return out as T;
+}
+
+async function guardRaw<T>(fn: () => Promise<T>): Promise<T | Fail> {
   try {
     return await fn();
   } catch (err) {
@@ -72,6 +92,8 @@ const badId = (...ids: (string | undefined | null)[]) => ids.some((v) => v != nu
 export function createNiaTools(scope: NiaToolScope) {
   const { db, merchant } = scope;
   const m = merchant.id;
+  /** Every tool result: errors become typed failures, amounts get human-readable labels. */
+  const guard = <T,>(fn: () => Promise<T>) => guardRaw(async () => withMoneyLabels(await fn(), merchant.locale, merchant.currency));
   const needCustomer = () => scope.customerId;
 
   return {

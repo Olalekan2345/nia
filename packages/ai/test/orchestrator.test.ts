@@ -19,6 +19,7 @@ import {
   type OrderSummaryData,
 } from "@nia/commerce";
 import {
+  aiBusyMessage,
   buildSystemPrompt,
   confirmCustomerOrder,
   createConversation,
@@ -27,6 +28,7 @@ import {
   saveUserMessage,
   selectTools,
   setModelOverrides,
+  withMoneyLabels,
 } from "../src";
 import { jsonModel, scriptedModel } from "./mock-model";
 
@@ -255,6 +257,31 @@ describe("flagship memory scenario", () => {
     expect(t.saved.text).not.toContain("4111");
     expect(t.prepared.userText).not.toContain("123456");
     expect(JSON.stringify(t.prepared.messages)).not.toContain("4111 1111");
+  });
+});
+
+describe("provider rate limits", () => {
+  it("turns a Groq 429 (inside the SDK's retry error) into a short 'busy' message", () => {
+    const groq429 = Object.assign(new Error("Rate limit reached for model `qwen/qwen3.8-27b` on input tokens per minute (ITPM): Limit 7000, Used 4371, Requested 4245. Please try again in 13.851428571s."), { statusCode: 429 });
+    const retryError = Object.assign(new Error("Failed after 3 attempts."), { lastError: groq429 });
+    expect(aiBusyMessage(retryError)).toBe("Nia is getting a lot of messages right now. Please try again in about 14 seconds.");
+    expect(aiBusyMessage(new Error("Something else broke"))).toBeNull();
+  });
+});
+
+describe("money in tool results", () => {
+  it("labels every minor-unit amount so the model never reads kobo as naira", () => {
+    const out = withMoneyLabels(
+      { products: [{ price: 750000, priceMax: null, currency: "NGN", variants: [{ name: "Emerald", price: 750000 }] }], summary: { currency: "NGN", total: 4500000, items: [{ lineTotal: 4500000 }] } },
+      "en-NG",
+      "NGN",
+    ) as unknown as { products: { price: number; priceLabel: string; variants: { priceLabel: string }[] }[]; summary: { totalLabel: string; items: { lineTotalLabel: string }[] } };
+    expect(out.products[0]!.priceLabel).toMatch(/7,500(.00)?$/);
+    expect(out.products[0]!.variants[0]!.priceLabel).toMatch(/7,500/);
+    expect(out.summary.totalLabel).toMatch(/45,000/);
+    expect(out.summary.items[0]!.lineTotalLabel).toMatch(/45,000/);
+    expect(out.products[0]!.price).toBe(750000); // exact values stay for the UI cards
+    expect(JSON.stringify(out)).not.toMatch(/750,000/);
   });
 });
 

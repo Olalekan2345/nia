@@ -11,6 +11,7 @@ import { createUIMessageStream, createUIMessageStreamResponse, stepCountIs, stre
 import { z } from "zod";
 import { env } from "@nia/config";
 import {
+  aiBusyMessage,
   createConversation,
   decisionView,
   extractAndRemember,
@@ -91,6 +92,11 @@ export async function POST(req: Request) {
 
   const stream = createUIMessageStream<NiaUIMessage>({
     onError: (err) => {
+      const busy = aiBusyMessage(err);
+      if (busy) {
+        console.warn("[chat] model provider rate limit", (err as Error).message?.slice(0, 200));
+        return busy;
+      }
       console.error("[chat] stream error", err);
       return isAppError(err) ? err.message : "Nia had trouble answering. Please try again.";
     },

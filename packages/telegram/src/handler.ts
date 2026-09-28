@@ -39,6 +39,7 @@ import {
 } from "@nia/commerce";
 import { awaitDurable, customerPassport, resolveCandidate, type MemoryReceipt, type MemoryStore } from "@nia/memory";
 import {
+  aiBusyMessage,
   cancelCustomerBooking,
   confirmCustomerBooking,
   confirmCustomerOrder,
@@ -661,6 +662,11 @@ export async function runTurn(c: ChatContext, merchant: Merchant, text: string, 
       });
     }
     await confirm?.();
+  } catch (err) {
+    const busy = aiBusyMessage(err);
+    if (!busy) throw err;
+    console.warn("[telegram] model provider rate limit", (err as Error).message?.slice(0, 200));
+    await bot.sendMessage(c.chatId, busy);
   } finally {
     clearInterval(typing);
   }
