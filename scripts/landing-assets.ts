@@ -46,6 +46,33 @@ for (const [name, c] of Object.entries(CROPS)) {
   console.log(`✓ nia-${name}.webp  ${info.width}×${info.height}  ${Math.round(info.size / 1024)} KB`);
 }
 
+/**
+ * Floating product objects for the Telegram orbit scene: boxes in source
+ * pixels, softened at the edges so the object floats with a glow, not a square.
+ */
+const OBJECTS: Record<string, { file: string; box: { left: number; top: number; width: number; height: number }; px: number }> = {
+  bag: { file: "002_BEF57865-86BF-4CF5-9D07-AB3B941CD628.jpg", box: { left: 605, top: 80, width: 300, height: 325 }, px: 340 },
+  sneaker: { file: "001_013D68B7-058F-4CCB-A3F5-2426DDAAD547.jpg", box: { left: 1090, top: 340, width: 310, height: 210 }, px: 380 },
+  beauty: { file: "003_EB088C3A-BDA3-4FA0-A76F-CF8D3E07BEB4.jpg", box: { left: 380, top: 92, width: 240, height: 200 }, px: 320 },
+  headphones: { file: "003_EB088C3A-BDA3-4FA0-A76F-CF8D3E07BEB4.jpg", box: { left: 762, top: 100, width: 205, height: 215 }, px: 290 },
+};
+
+for (const [name, o] of Object.entries(OBJECTS)) {
+  const width = o.px;
+  const height = Math.round((o.px * o.box.height) / o.box.width);
+  const feather = Buffer.from(
+    `<svg width="${width}" height="${height}"><defs><radialGradient id="f" cx="50%" cy="50%" r="50%"><stop offset="0.6" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient></defs><ellipse cx="${width / 2}" cy="${height / 2}" rx="${width / 2}" ry="${height / 2}" fill="url(#f)"/></svg>`,
+  );
+  const info = await sharp(path.join(src, o.file))
+    .extract(o.box)
+    .resize(width, height, { kernel: "lanczos3" })
+    .ensureAlpha()
+    .composite([{ input: feather, blend: "dest-in" }])
+    .webp({ quality: 86, alphaQuality: 90 })
+    .toFile(path.join(out, `orbit-${name}.webp`));
+  console.log(`✓ orbit-${name}.webp  ${info.width}×${info.height}  ${Math.round(info.size / 1024)} KB`);
+}
+
 for (const [name, file] of Object.entries(SCENES)) {
   const input = path.join(src, file);
   if (!existsSync(input)) throw new Error(`Missing brand/landing/${file} (scene "${name}")`);

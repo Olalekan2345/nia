@@ -18,4 +18,6 @@ The mapping lives in `scripts/landing-assets.ts` (`SCENES`). To swap a picture, 
 | `telegram` | Telegram | winking, holding a phone |
 | `cta` | Final call to action | peace sign under a bright arch |
 
-Unused for now: `000_E9351B81…` (shopping bags + Telegram icon), `001_6BF5B3C2…` (walking, phone), `002_BEF57865…` (web chat → memory → Telegram). `85900A11…` is an exact copy of `004_79358D62…`.
+The Telegram orbit's floating objects (`orbit-bag`, `orbit-sneaker`, `orbit-beauty`, `orbit-headphones`) are soft-edged crops of these pictures; their boxes are in `OBJECTS` in the same script.
+
+Unused for now: `000_E9351B81…` (shopping bags + Telegram icon), `001_6BF5B3C2…` (walking, phone), `002_BEF57865…` (web chat → memory → Telegram; only its handbag is used, in the orbit). `85900A11…` is an exact copy of `004_79358D62…`.
