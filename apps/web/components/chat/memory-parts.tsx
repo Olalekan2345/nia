@@ -74,7 +74,7 @@ export function RecallChip({ data }: { data: NiaDataParts["recall"] }) {
         <ChevronDown className={cn("size-3.5 transition-transform duration-150", open && "rotate-180")} aria-hidden="true" />
       </button>
       {open ? (
-        <div className="nia-enter mt-2 rounded-2xl border border-border bg-surface p-3 text-sm">
+        <div className="nia-enter mt-2 rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft p-3 text-sm">
           <div className="flex items-center justify-between gap-2">
             <p className="font-semibold">Why Nia said this</p>
             {data.backend === "walrus" ? <WalrusChip label={source} /> : <span className="text-xs text-muted-foreground">{source}</span>}
@@ -93,7 +93,7 @@ export function RecallChip({ data }: { data: NiaDataParts["recall"] }) {
 function RecalledItem({ m, network }: { m: RecalledMemoryView; network: string | null }) {
   const [details, setDetails] = useState(false);
   return (
-    <li className="rounded-xl bg-surface-2 p-3">
+    <li className="rounded-2xl border border-ink-900/[0.05] bg-paper p-3.5">
       <div className="flex flex-wrap items-center gap-1.5 text-xs font-semibold text-muted-foreground">
         <span>{m.scope === "customer" ? (m.type ? TYPE_LABEL[m.type] ?? m.type : "Your memory") : "From the shop"}</span>
         {m.historical ? (
@@ -130,7 +130,7 @@ function RecalledItem({ m, network }: { m: RecalledMemoryView; network: string |
 
 export function ReceiptList({ receipts, compact = false }: { receipts: MemoryReceiptView[]; compact?: boolean }) {
   return (
-    <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+    <ul className="divide-y divide-ink-900/[0.06] overflow-hidden rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft">
       {receipts.map((r) => (
         <ReceiptRow key={r.recordId ?? r.label} r={r} compact={compact} />
       ))}
@@ -240,7 +240,7 @@ export function MemoryPanel({
       ) : null}
       {visible.length ? <ReceiptList receipts={visible} /> : null}
       {data.consent.filter((c) => !(c.candidateId in answered)).map((c) => (
-        <div key={c.candidateId} className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2">
+        <div key={c.candidateId} className="flex flex-wrap items-center gap-2 rounded-2xl border border-ink-900/[0.06] bg-surface px-3 py-2">
           <p className="min-w-0 flex-1 text-sm">
             Should I remember this? <span className="font-semibold">{c.label}</span>
           </p>

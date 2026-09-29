@@ -43,6 +43,40 @@ Nia: multi-merchant AI shopping & service assistant (web chat + Telegram) with d
 - Telegram section: `telegram-orbit-experience.tsx` — real CSS 3D (perspective + preserve-3d, so cards genuinely pass behind the phone). Data-driven `ORBIT` list (10 desktop / 8 tablet / 4 mobile by stage width), one clock that ticks only near the viewport, desktop-only pointer lean (±3°), slow turntable of the whole scene, still composition for reduced motion. Keep large tilted planes (e.g. orbit guide rings) OUT of the preserve-3d scene and keep cards opaque — browsers mis-sort/blend them against the phone. Product objects are feathered crops from the mascot art (`OBJECTS` in `scripts/landing-assets.ts` → `public/landing/orbit-*.webp`).
 - Examples are labelled "Example" / "Sample data"; the only live values are real links (the t.me bot via `botLink()`, GitHub docs).
 
+## Visual consistency (2026-09-29)
+The landing page is the source of truth. Its language now lives in shared tokens and primitives, so app pages inherit it:
+- Tokens (`globals.css` :root): paper background `#fbfbfe`, white surfaces, hairline `--border #e8e7f2` / `border-ink-900/[0.06]`, primary = landing CTA navy `#1b1a4b`, `--shadow-float` = the landing's soft navy shadow; app is light-only (`data-theme="light"`), like the landing. Contrast re-checked (`scripts/check-contrast.ts`, 0 failures).
+- `@nia/ui` primitives: pill buttons (navy primary with a soft lift, white secondary with hairline), `Card` = rounded-3xl + hairline + `shadow-soft`, fields = rounded-2xl, h-12, hairline, accent focus ring; `Skeleton` = aqua shimmer (`.nia-skeleton`).
+- `components/dashboard/ui.tsx`: display-style `PageHeader`, `Stat`, `EmptyPanel` (mascot on an aqua glow), soft `Table` (paper header, row hover). Inside a card pass `className="rounded-2xl shadow-none"`.
+- Shells: dashboard sidebar (soft surface, active item = white pill + aqua edge glow), mobile tabs and store nav = navy pills; market/store headers white/90 with hairline.
+- Only classNames / presentational markup changed — no handlers, queries, actions, routes or props.
+
+Route checklist (inspected at 1440 and 390, restyled, functionally tested):
+| Route | Status | Notes |
+|---|---|---|
+| `/` landing | ✅ source of truth | unchanged |
+| `/signin` | ✅ | display title, mascot aura, card + fields from primitives; e2e sign-in |
+| `/try` | ✅ | cards + title |
+| `/onboarding` (all 6 steps) | ✅ | step pills, hero title, mascot aura; e2e onboarding → publish |
+| `/dashboard` workspace picker | ✅ | |
+| `/dashboard/[id]` overview | ✅ | stats, chart card, health, recent orders |
+| `…/conversations`, `…/conversations/[id]` | ✅ | table; transcript |
+| `…/customers`, `…/customers/[id]` | ✅ | table; memory rows with orb markers; fixed pre-existing 100px mobile overflow |
+| `…/catalog`, products new/edit, services new/edit | ✅ | tables, forms, photo field; e2e create product |
+| `…/orders` | ✅ | table + empty state; e2e merchant sees/confirms order |
+| `…/orders/[id]` | ⚠️ code-checked | uses shared Card/Badge/title; no orders in local dev DB to view with data |
+| `…/bookings` | ✅ | table / empty state |
+| `…/memory` (Walrus) | ✅ | health panel, stats, nested tables flattened, blob IDs + copy |
+| `…/settings` (incl. Telegram, team, knowledge, hours, delivery) | ✅ | fixed pre-existing 121px mobile overflow (hours), delivery areas stack on phones |
+| `…/judge` | ✅ | stats, walkthrough, before/after chats |
+| `/s/[slug]` home, shop, product | ✅ | hero title, product cards |
+| `/s/[slug]/chat` | ✅ | navy user bubbles, lavender assistant bubbles, pill composer, round send; e2e live memory chat |
+| `/s/[slug]/orders` (cart) | ✅ | e2e cart → confirm |
+| `/s/[slug]/profile` Memory Passport + Telegram connect | ✅ | orb section markers, memory-card rows, mascot empty state |
+| `/s/[slug]/signin` | ✅ | |
+| `/market`, `/market/nia`, `/market/compare`, `/market/profile`, `/market/signin` | ✅ | e2e browse/search/compare |
+There is no separate Telegram page: connection lives in the store profile and dashboard settings (both covered).
+
 ## Status (2026-09-28)
 Verified with real credentials (2026-09-28): `pnpm walrus:health` (mainnet), `pnpm test:walrus`, `pnpm test:ai` (Qwen extraction), and the flagship browser flow on Mainnet + Groq: preferences → 3 stored receipts → new chat recall → Yaba correction (supersedes, keeps Lekki as history) → new chat answers “Lekki before, Yaba now” → Memory Passport.
 Finished & verified locally: landing; storefront (home, shop, product, chat, orders/cart, profile + Memory Passport + Telegram connect, sign-in); chat streaming with cards/receipts/recall chips; dashboard (overview, conversations, customers + detail + owner restore, catalog editors, orders + detail + transitions, bookings, memory explorer with relayer counts, settings incl. knowledge/Telegram/team, judge mode with before/after); onboarding; Telegram webhook + bot CLI; Paystack webhook; health endpoint; docs.
@@ -62,6 +96,8 @@ Verified: 108 unit/integration tests, lint, typecheck (10 packages), `next build
 2. Real users (≥3 × ≥10 memories), screenshots, article (docs/ARTICLE_DRAFT.md), X post, feedback form.
 
 ## Known issues / notes
+- **e2e flake source:** an interrupted Playwright run (or stopping a background `next dev` task, which only kills its shell) can leave `apps/web/.next-e2e` corrupted. Symptoms: `Timed out waiting 180000ms from config.webServer`, or a fresh merchant's dashboard route returning 404. Fix: stop anything on port 3310, `rm -rf apps/web/.next-e2e`, re-run.
+- Customers list shows 0 memories for customers whose Memory page counts are 3–4 (pre-existing count/query mismatch, not yet investigated).
 - Local dev: earlier local test data was reset with `pnpm db:reset`; e2e runs create test shops (“E2E Linen …”) in the local DB.
 - Rate limits are Postgres fixed windows (fine for one region).
 - Chat image upload not implemented (merchant product photo upload is).

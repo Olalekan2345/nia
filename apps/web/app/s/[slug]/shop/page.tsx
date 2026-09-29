@@ -23,7 +23,7 @@ export default async function ShopPage({ params, searchParams }: { params: Promi
 
   return (
     <main className="mx-auto max-w-5xl px-4 pt-6 md:px-6">
-      <h1 className="text-2xl font-extrabold tracking-tight">Shop {merchant.name}</h1>
+      <h1 className="text-[clamp(1.75rem,3vw,2.35rem)] leading-tight font-extrabold tracking-[-0.035em] text-balance">Shop {merchant.name}</h1>
       <form action={base} role="search" className="relative mt-4">
         <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
         <label htmlFor="q" className="sr-only">
@@ -35,7 +35,7 @@ export default async function ShopPage({ params, searchParams }: { params: Promi
           type="search"
           defaultValue={q}
           placeholder="Search products and services"
-          className="h-12 w-full rounded-2xl border border-border bg-surface pr-4 pl-10 text-[16px] placeholder:text-muted-foreground/80 focus-visible:border-accent focus-visible:ring-4 focus-visible:ring-ring/20 focus-visible:outline-none"
+          className="h-12 w-full rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft pr-4 pl-10 text-[16px] placeholder:text-muted-foreground/80 focus-visible:border-accent focus-visible:ring-4 focus-visible:ring-ring/20 focus-visible:outline-none"
         />
       </form>
 
@@ -96,7 +96,7 @@ export default async function ShopPage({ params, searchParams }: { params: Promi
       ) : null}
 
       {products.length === 0 && services.length === 0 ? (
-        <div className="mt-10 flex flex-col items-center rounded-2xl border border-dashed border-border px-6 py-12 text-center">
+        <div className="mt-10 flex flex-col items-center rounded-3xl border border-dashed border-ink-900/10 px-6 py-12 text-center">
           <Mascot size={80} state="thinking" decorative />
           <p className="mt-4 font-semibold">{q ? `Nothing matches “${q}”` : "No products yet"}</p>
           <p className="mt-1 text-sm text-muted-foreground">{q ? "Try a different word, or ask Nia to help you find something similar." : `${merchant.name} hasn’t added products yet.`}</p>

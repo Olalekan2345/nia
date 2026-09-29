@@ -24,7 +24,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ slug: 
     return (
       <main className="mx-auto flex max-w-md flex-col items-center px-4 pt-14 text-center">
         <Mascot size={96} state="privacy" decorative />
-        <h1 className="mt-4 text-xl font-bold">Your profile and Memory Passport</h1>
+        <h1 className="mt-5 text-2xl leading-tight font-extrabold tracking-[-0.03em] text-balance">Your profile and Memory Passport</h1>
         <p className="mt-2 text-sm text-muted-foreground">Sign in to see what Nia remembers about you at {merchant.name}, correct it, or connect Telegram.</p>
         <Link href={`/s/${slug}/signin?next=/s/${slug}/profile`} className={buttonClasses({ size: "lg", className: "mt-6" })}>
           Sign in
@@ -45,12 +45,12 @@ export default async function ProfilePage({ params }: { params: Promise<{ slug: 
           {name.slice(0, 1).toUpperCase()}
         </span>
         <div className="min-w-0 flex-1">
-          <h1 className="truncate text-xl font-extrabold tracking-tight">{name}</h1>
+          <h1 className="truncate text-2xl font-extrabold tracking-[-0.03em]">{name}</h1>
           <p className="truncate text-sm text-muted-foreground">{userLabel(user)}</p>
         </div>
         <form action={signOutAction}>
           <input type="hidden" name="next" value={`/s/${slug}`} />
-          <button className="inline-flex h-10 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-muted-foreground hover:bg-surface-2 hover:text-foreground">
+          <button className="inline-flex h-10 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold text-muted-foreground transition-colors duration-150 hover:bg-ink-900/[0.05] hover:text-foreground">
             <LogOut className="size-4" aria-hidden="true" /> Sign out
           </button>
         </form>
@@ -83,7 +83,7 @@ export default async function ProfilePage({ params }: { params: Promise<{ slug: 
 
       <Card>
         <CardBody>
-          <h2 className="font-bold">Telegram</h2>
+          <h2 className="font-extrabold tracking-[-0.01em]">Telegram</h2>
           <p className="mt-1 mb-4 text-sm text-muted-foreground">
             {user.telegramUserId
               ? `This account and your Telegram chat are one profile — the same memory, cart and conversation at ${merchant.name} and every other shop.`

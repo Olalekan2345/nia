@@ -228,7 +228,7 @@ export function ChatView(props: ChatViewProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-3 border-b border-border bg-surface/80 px-4 py-2.5 backdrop-blur-md">
+      <div className="flex items-center gap-3 border-b border-ink-900/[0.06] bg-surface/90 px-4 py-3 backdrop-blur-md sm:px-5">
         <Mascot size={40} state={mascot} label={`Nia — ${statusText ?? "ready"}`} />
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold leading-tight">Nia</p>
@@ -242,7 +242,7 @@ export function ChatView(props: ChatViewProps) {
             href={props.telegramUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="grid size-10 place-items-center rounded-xl text-muted-foreground hover:bg-surface-2 hover:text-foreground"
+            className="grid size-10 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-ink-900/[0.05] hover:text-foreground"
             aria-label="Continue in Telegram"
             title="Continue in Telegram"
           >
@@ -250,7 +250,7 @@ export function ChatView(props: ChatViewProps) {
           </a>
         ) : null}
         {!props.compactHeader ? (
-          <a href={paths.newChat} className="grid size-10 place-items-center rounded-xl text-muted-foreground hover:bg-surface-2 hover:text-foreground" aria-label="New chat">
+          <a href={paths.newChat} className="grid size-10 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-ink-900/[0.05] hover:text-foreground" aria-label="New chat">
             <Plus className="size-5" aria-hidden="true" />
           </a>
         ) : null}
@@ -287,7 +287,7 @@ export function ChatView(props: ChatViewProps) {
           ) : null}
 
           {error ? (
-            <div className="flex items-center gap-3 rounded-2xl border border-danger/25 bg-danger-soft px-4 py-3 text-sm text-danger" role="alert">
+            <div className="flex items-center gap-3 rounded-2xl border border-danger/15 bg-danger-soft px-4 py-3 text-sm text-danger" role="alert">
               <CircleAlert className="size-4 shrink-0" aria-hidden="true" />
               <p className="min-w-0 flex-1">{error.message.includes("{") ? "Nia couldn’t answer just now." : error.message}</p>
               <Button
@@ -308,7 +308,7 @@ export function ChatView(props: ChatViewProps) {
       </div>
 
       <form
-        className="safe-bottom border-t border-border bg-surface/95 px-3 pt-2.5 backdrop-blur-md"
+        className="safe-bottom border-t border-ink-900/[0.06] bg-surface/95 px-3 pt-3 backdrop-blur-md sm:px-4"
         onSubmit={(e) => {
           e.preventDefault();
           send(input);
@@ -338,14 +338,14 @@ export function ChatView(props: ChatViewProps) {
             maxLength={2000}
             placeholder={props.aiConfigured ? "Message Nia…" : "Nia isn’t configured yet"}
             disabled={!props.aiConfigured}
-            className="max-h-40 min-h-12 flex-1 resize-none rounded-2xl border border-border bg-background px-4 py-3 text-[16px] leading-6 placeholder:text-muted-foreground/80 focus-visible:border-accent focus-visible:ring-4 focus-visible:ring-ring/20 focus-visible:outline-none disabled:opacity-60"
+            className="max-h-40 min-h-12 flex-1 resize-none rounded-[24px] border border-ink-900/12 bg-surface px-5 py-3 text-[16px] leading-6 placeholder:text-muted-foreground/75 transition-[border-color,box-shadow] duration-150 hover:border-ink-900/20 focus-visible:border-accent focus-visible:ring-4 focus-visible:ring-ring/20 focus-visible:outline-none disabled:opacity-60"
           />
           {busy ? (
-            <Button type="button" size="icon" variant="secondary" className="size-12 rounded-2xl" onClick={() => stop()} aria-label="Stop">
+            <Button type="button" size="icon" variant="secondary" className="size-12" onClick={() => stop()} aria-label="Stop">
               <Square className="size-4 fill-current" aria-hidden="true" />
             </Button>
           ) : (
-            <Button type="submit" size="icon" className="size-12 rounded-2xl" disabled={!input.trim() || !props.aiConfigured} aria-label="Send">
+            <Button type="submit" size="icon" className="size-12" disabled={!input.trim() || !props.aiConfigured} aria-label="Send">
               <ArrowUp className="size-5" aria-hidden="true" />
             </Button>
           )}
@@ -380,7 +380,7 @@ function EmptyState({
   return (
     <div className="flex flex-col items-center pt-6 text-center">
       <Mascot size={120} state="greeting" decorative />
-      <h1 className="mt-4 text-2xl font-extrabold tracking-tight">{name ? `Hi ${name}, how can I help?` : "How can I help today?"}</h1>
+      <h1 className="mt-5 text-2xl leading-tight font-extrabold tracking-[-0.03em] text-balance">{name ? `Hi ${name}, how can I help?` : "How can I help today?"}</h1>
       <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">{intro ?? `Ask about ${shop}’s products and services, reorder something, or book an appointment.`}</p>
       {!aiConfigured ? (
         <p className="mt-4 max-w-sm rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning">
@@ -403,7 +403,7 @@ function EmptyState({
               type="button"
               disabled={disabled || !aiConfigured}
               onClick={() => onPick(s)}
-              className="w-full rounded-2xl border border-border bg-surface px-4 py-3 text-left text-[15px] font-medium transition-colors duration-100 hover:bg-surface-2 disabled:opacity-50"
+              className="w-full rounded-[22px] border border-ink-900/[0.07] bg-surface px-5 py-3.5 text-left text-[15px] font-medium shadow-soft transition-[border-color,box-shadow,transform] duration-200 hover:border-accent/35 hover:shadow-lift motion-safe:hover:-translate-y-px disabled:opacity-50"
             >
               {s}
             </button>
@@ -421,7 +421,7 @@ function UserBubble({ message }: { message: NiaUIMessage }) {
     .join("\n");
   return (
     <div className="nia-enter flex justify-end">
-      <p className="max-w-[85%] rounded-3xl rounded-br-lg bg-primary px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap text-primary-foreground">{text}</p>
+      <p className="max-w-[85%] rounded-[22px] rounded-br-md bg-primary px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap text-primary-foreground shadow-[0_10px_24px_-18px_rgb(27_26_75/0.8)]">{text}</p>
     </div>
   );
 }
@@ -456,7 +456,7 @@ function AssistantMessage({
     <div className="nia-enter flex flex-col gap-2.5">
       {recall ? <RecallChip data={recall.data} /> : null}
       {text ? (
-        <div className={cn("max-w-[92%] rounded-3xl rounded-bl-lg border border-border bg-surface px-4 py-3 text-[15px] leading-relaxed", streaming && "min-h-11")}>
+        <div className={cn("max-w-[92%] rounded-[22px] rounded-bl-md border border-ink-900/[0.04] bg-surface-2/70 px-4 py-3 text-[15px] leading-relaxed", streaming && "min-h-11")}>
           <Markdown text={text} />
         </div>
       ) : null}

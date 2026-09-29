@@ -22,7 +22,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
         <ArrowLeft className="size-4" aria-hidden="true" /> Back to the market
       </Link>
       <div>
-        <h1 className="text-3xl font-extrabold tracking-tight">Compare</h1>
+        <h1 className="text-[clamp(2rem,4.2vw,3rem)] leading-[1.05] font-extrabold tracking-[-0.04em] text-balance">Compare</h1>
         <p className="mt-1 text-muted-foreground">Side by side, straight from each shop’s catalogue.</p>
       </div>
 
@@ -43,7 +43,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
           </div>
         </>
       ) : (
-        <div className="flex flex-col items-center rounded-3xl border border-dashed border-border px-6 py-14 text-center">
+        <div className="flex flex-col items-center rounded-3xl border border-dashed border-ink-900/10 px-6 py-14 text-center">
           <Mascot size={88} state="thinking" decorative />
           <p className="mt-4 font-semibold">Pick at least two products to compare</p>
           <p className="mt-1 max-w-sm text-sm text-muted-foreground">Tap “Compare” on products in the market, then come back here.</p>

@@ -157,7 +157,7 @@ export function ServiceForm({ merchantId, initial, currency }: { merchantId: str
                     <Field label="Extra minutes" htmlFor={`od-${i}`}>
                       <Input id={`od-${i}`} inputMode="numeric" value={o.durationDelta} onChange={(e) => upd({ durationDelta: e.target.value.replace(/\D/g, "") })} />
                     </Field>
-                    <button type="button" onClick={() => set("options", v.options.filter((_, j) => j !== i))} className="grid size-11 place-items-center rounded-xl text-muted-foreground hover:bg-danger-soft hover:text-danger" aria-label="Remove add-on">
+                    <button type="button" onClick={() => set("options", v.options.filter((_, j) => j !== i))} className="grid size-11 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-danger-soft hover:text-danger" aria-label="Remove add-on">
                       <Trash2 className="size-4" aria-hidden="true" />
                     </button>
                   </li>

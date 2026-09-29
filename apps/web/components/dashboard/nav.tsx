@@ -31,7 +31,7 @@ export function DashboardNav({ base, demo, variant }: { base: string; demo: bool
             key={href}
             href={href}
             aria-current={active(href, exact) ? "page" : undefined}
-            className={cn("shrink-0 rounded-lg px-3 py-2 text-sm font-semibold", active(href, exact) ? "bg-surface text-foreground shadow-sm" : "text-muted-foreground")}
+            className={cn("shrink-0 rounded-full px-3.5 py-2 text-sm font-semibold transition-colors duration-150", active(href, exact) ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
           >
             {label}
           </Link>
@@ -40,7 +40,7 @@ export function DashboardNav({ base, demo, variant }: { base: string; demo: bool
     );
   }
   return (
-    <nav aria-label="Workspace" className="space-y-0.5">
+    <nav aria-label="Workspace" className="space-y-1">
       {items.map(({ href, label, icon: Icon, exact }) => {
         const on = active(href, exact);
         return (
@@ -49,11 +49,13 @@ export function DashboardNav({ base, demo, variant }: { base: string; demo: bool
             href={href}
             aria-current={on ? "page" : undefined}
             className={cn(
-              "flex h-10 items-center gap-3 rounded-xl px-3 text-sm font-semibold transition-colors duration-100",
-              on ? "bg-surface text-foreground shadow-sm" : "text-muted-foreground hover:bg-surface/60 hover:text-foreground",
+              "relative flex h-11 items-center gap-3 rounded-2xl px-3.5 text-sm font-semibold transition-[background-color,color,box-shadow] duration-150",
+              on ? "bg-surface text-foreground shadow-soft ring-1 ring-ink-900/[0.05]" : "text-muted-foreground hover:bg-ink-900/[0.04] hover:text-foreground",
             )}
           >
-            <Icon className={cn("size-[18px]", on && "text-accent-strong")} aria-hidden="true" />
+            {/* Active: a small aqua glow at the edge, not a heavy block. */}
+            {on ? <span aria-hidden="true" className="absolute top-1/2 left-1.5 h-5 w-[3px] -translate-y-1/2 rounded-full bg-aqua-400 shadow-[0_0_10px_rgb(81_224_246/0.7)]" /> : null}
+            <Icon className={cn("size-[18px]", on && "text-memory")} aria-hidden="true" />
             {label}
           </Link>
         );

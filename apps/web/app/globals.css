@@ -70,15 +70,21 @@
   --color-paper: var(--paper);
 }
 
+/*
+ * App tokens follow the approved landing page (see .nia-light below): warm
+ * paper background, white surfaces, hairline borders, the landing CTA navy
+ * for primary actions, and its soft navy shadow.
+ */
 :root {
   color-scheme: light;
-  --background: #f6f5fd;
+  --background: #fbfbfe;
+  --paper: #fbfbfe;
   --foreground: #1b1a4b;
   --surface: #ffffff;
   --surface-2: #efeefb;
-  --border: #e2e0f3;
+  --border: #e8e7f2;
   --muted-foreground: #58577e;
-  --primary: #2a2670;
+  --primary: #1b1a4b;
   --primary-foreground: #ffffff;
   --accent: #5352e0;
   --accent-foreground: #ffffff;
@@ -100,7 +106,7 @@
   --glow-periwinkle: #9fb8fc;
   --glow-lavender: #ce93e3;
   --glow-blush: #f5b3dc;
-  --shadow-float: 0 1px 2px rgb(27 26 75 / 0.05), 0 10px 28px -10px rgb(83 82 224 / 0.22);
+  --shadow-float: 0 1px 2px rgb(27 26 75 / 0.04), 0 18px 40px -22px rgb(27 26 75 / 0.22);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -450,4 +456,21 @@ html:has(.nia-landing) {
     animation: none !important;
     stroke-dashoffset: 0;
   }
+}
+
+/* ─────────────────────────────── App surfaces ─────────────────────────────── */
+
+/* Loading placeholders: a soft aqua shimmer from the landing palette. */
+.nia-skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 0%, #ecfcfe 50%, var(--surface-2) 100%);
+  background-size: 200% 100%;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .nia-skeleton {
+    animation: nia-shimmer 1.6s ease-in-out infinite;
+  }
+}
+@keyframes nia-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
 }

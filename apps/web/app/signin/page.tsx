@@ -26,13 +26,16 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
       <main className="flex flex-1 items-start justify-center px-4 pt-6 pb-16 sm:pt-16">
         <div className="w-full max-w-sm">
           <div className="flex flex-col items-center text-center">
-            <Mascot size={88} state="greeting" decorative />
-            <h1 className="mt-4 text-2xl font-extrabold tracking-tight">Sign in to Nia</h1>
+            <span className="relative inline-grid place-items-center">
+              <span aria-hidden="true" className="nia-breathe absolute -inset-7 rounded-full" style={{ background: "radial-gradient(closest-side, rgb(107 222 230 / 0.42), rgb(159 184 252 / 0.2) 60%, transparent)" }} />
+              <Mascot size={88} state="greeting" decorative className="relative" />
+            </span>
+            <h1 className="mt-5 text-[clamp(1.75rem,3vw,2.35rem)] leading-tight font-extrabold tracking-[-0.035em] text-balance">Sign in to Nia</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               {safe.startsWith("/onboarding") ? "Create your business workspace in a few minutes." : "Manage your business, catalog and customer memory."}
             </p>
           </div>
-          <div className="mt-8 rounded-2xl border border-border bg-surface p-6 shadow-float">
+          <div className="mt-8 rounded-3xl border border-ink-900/[0.06] bg-surface p-6 shadow-soft sm:p-8">
             <SignInForm next={safe} telegramBot={telegramBotUsername()} email={emailSignInAvailable()} />
           </div>
           <p className="mt-6 text-center text-xs leading-relaxed text-muted-foreground">

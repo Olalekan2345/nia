@@ -72,7 +72,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
         <div className="nia-wash flex flex-col justify-between rounded-3xl border border-border p-6">
           <div>
             <p className="text-sm font-semibold text-muted-foreground">{greeting(timeZone)}{name ? "," : ""}</p>
-            <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-balance">{name ? `${name}, welcome to Walrus Market` : "Welcome to Walrus Market"}</h1>
+            <h1 className="mt-1 text-[clamp(2rem,4.2vw,3rem)] leading-[1.05] font-extrabold tracking-[-0.04em] text-balance">{name ? `${name}, welcome to Walrus Market` : "Welcome to Walrus Market"}</h1>
             <p className="mt-2 text-muted-foreground text-pretty">Independent shops in one place. Compare, decide, then buy from the shop you pick.</p>
           </div>
           <div className="mt-5 flex flex-wrap items-center gap-2">
@@ -176,7 +176,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
           </ul>
         </section>
       ) : tab === "for-you" ? (
-        <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+        <p className="rounded-3xl border border-dashed border-ink-900/10 p-6 text-center text-sm text-muted-foreground">
           Nothing in the market matches what you told Nia yet.{" "}
           <Link href="/market/nia" className="font-semibold text-accent-strong hover:underline">
             Ask Nia
@@ -195,7 +195,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
             </h2>
           </div>
 
-          <form action="/market" className="flex flex-wrap items-end gap-2 rounded-2xl border border-border bg-surface p-3">
+          <form action="/market" className="flex flex-wrap items-end gap-2 rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft p-3">
             {q ? <input type="hidden" name="q" value={q} /> : null}
             {sp.type ? <input type="hidden" name="type" value={sp.type} /> : null}
             <SlidersHorizontal className="mb-2.5 size-4 text-muted-foreground" aria-hidden="true" />
@@ -212,7 +212,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
             </label>
             <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
               Max budget ({currency === "NGN" ? "₦" : currency})
-              <input name="max" type="number" inputMode="numeric" min={0} step={500} defaultValue={sp.max ?? ""} placeholder="Any" className="h-10 w-32 rounded-xl border border-border bg-background px-3 text-sm font-medium text-foreground" />
+              <input name="max" type="number" inputMode="numeric" min={0} step={500} defaultValue={sp.max ?? ""} placeholder="Any" className="h-10 w-32 rounded-2xl border border-ink-900/12 bg-surface px-4 text-sm font-medium text-foreground" />
             </label>
             <label className="grid gap-1 text-xs font-semibold text-muted-foreground">
               Shop
@@ -225,7 +225,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
                 ))}
               </select>
             </label>
-            <label className="flex h-10 items-center gap-2 rounded-xl border border-border bg-background px-3 text-sm font-medium">
+            <label className="flex h-10 items-center gap-2 rounded-2xl border border-ink-900/12 bg-surface px-4 text-sm font-medium">
               <input type="checkbox" name="stock" value="1" defaultChecked={sp.stock === "1"} className="size-4 accent-[var(--accent)]" />
               In stock
             </label>
@@ -259,7 +259,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
               ))}
             </ul>
           ) : (
-            <div className="flex flex-col items-center rounded-2xl border border-dashed border-border px-6 py-12 text-center">
+            <div className="flex flex-col items-center rounded-3xl border border-dashed border-ink-900/10 px-6 py-12 text-center">
               <Mascot size={80} state="thinking" decorative />
               <p className="mt-4 font-semibold">Nothing matches that yet</p>
               <p className="mt-1 max-w-sm text-sm text-muted-foreground">Try another word or fewer filters — or tell Nia what you need and she’ll look across every shop.</p>
@@ -279,7 +279,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
           </h2>
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {services.map((s) => (
-              <li key={`${s.shop.slug}-${s.id}`} className="flex flex-col overflow-hidden rounded-2xl border border-border bg-surface">
+              <li key={`${s.shop.slug}-${s.id}`} className="flex flex-col overflow-hidden rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft">
                 <ProductVisual name={s.name} category={s.category} image={s.image} kind="SERVICE" rounded="rounded-none" />
                 <div className="flex flex-1 flex-col p-3.5">
                   <p className="truncate text-xs font-medium text-muted-foreground">{s.shop.name}</p>
@@ -307,7 +307,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
           <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {shops.map((s) => (
               <li key={s.slug}>
-                <Link href={`/s/${s.slug}`} className="flex items-center gap-3 rounded-2xl border border-border bg-surface p-4 transition-colors duration-100 hover:border-accent">
+                <Link href={`/s/${s.slug}`} className="flex items-center gap-3 rounded-3xl border border-ink-900/[0.06] bg-surface p-4 shadow-soft transition-[border-color,box-shadow] duration-200 hover:border-accent/40 hover:shadow-lift">
                   <MerchantMark name={s.name} logoUrl={s.logoUrl} accent={s.accentColor} size={44} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-bold">{s.name}</span>

@@ -78,7 +78,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ merch
               <ul className="space-y-1">
                 {checklist.map((c) => (
                   <li key={c.label}>
-                    <Link href={c.href} className="flex items-center gap-3 rounded-xl px-2 py-2 text-sm hover:bg-surface-2">
+                    <Link href={c.href} className="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition-colors duration-150 hover:bg-paper">
                       {c.done ? <CheckCircle2 className="size-5 text-success" aria-hidden="true" /> : <Circle className="size-5 text-muted-foreground" aria-hidden="true" />}
                       <span className={c.done ? "text-muted-foreground line-through" : "font-medium"}>{c.label}</span>
                       <span className="sr-only">{c.done ? "(done)" : "(to do)"}</span>
@@ -109,7 +109,7 @@ export default async function OverviewPage({ params }: { params: Promise<{ merch
           {recent.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">No orders yet. Share your store link or Telegram bot to get started.</p>
           ) : (
-            <ul className="divide-y divide-border">
+            <ul className="divide-y divide-ink-900/[0.06]">
               {recent.map(({ order: o, customerName }) => (
                 <li key={o.id}>
                   <Link href={`${base}/orders/${o.id}`} className="flex items-center gap-4 py-3 hover:opacity-80">

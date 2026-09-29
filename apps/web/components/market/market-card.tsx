@@ -42,7 +42,7 @@ export function toMarketCard(p: MarketProduct): MarketCardProduct {
 export function MarketProductCard({ product, locale, actions, layout = "tile" }: { product: MarketCardProduct; locale: string; actions?: ReactNode; layout?: "tile" | "row" }) {
   const tile = layout === "tile";
   return (
-    <article className={cn("group overflow-hidden rounded-2xl border border-border bg-surface transition-shadow duration-150 hover:shadow-float", tile ? "flex flex-col" : "flex gap-3 p-3")}>
+    <article className={cn("group overflow-hidden rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft transition-shadow duration-150 hover:shadow-float", tile ? "flex flex-col" : "flex gap-3 p-3")}>
       <Link href={product.url} className={cn("relative block", tile ? "" : "w-24 shrink-0 sm:w-28")} aria-label={`${product.name} at ${product.shop.name}`}>
         <ProductVisual name={product.name} category={product.category} image={product.image} rounded={tile ? "rounded-none" : "rounded-xl"} className={tile ? "transition-transform duration-300 group-hover:scale-[1.02]" : ""} />
       </Link>

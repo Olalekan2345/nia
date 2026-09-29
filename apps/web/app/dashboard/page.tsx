@@ -22,13 +22,13 @@ export default async function DashboardIndex() {
       <header className="mx-auto flex max-w-3xl items-center justify-between px-4 py-5">
         <NiaLogo />
         <form action={signOutAction}>
-          <button className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground">Sign out</button>
+          <button className="rounded-full px-4 py-2 text-sm font-semibold text-muted-foreground transition-colors duration-150 hover:bg-ink-900/[0.05] hover:text-foreground">Sign out</button>
         </form>
       </header>
       <main className="mx-auto max-w-3xl px-4 pb-16">
-        <h1 className="text-2xl font-extrabold tracking-tight">Your workspaces</h1>
+        <h1 className="text-[clamp(1.75rem,3vw,2.35rem)] leading-tight font-extrabold tracking-[-0.035em] text-balance">Your workspaces</h1>
         <p className="mt-1 text-sm text-muted-foreground">Signed in as {userLabel(user)}</p>
-        <ul className="mt-6 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+        <ul className="mt-6 divide-y divide-ink-900/[0.06] overflow-hidden rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft">
           {workspaces.map(({ merchant, role }) => (
             <li key={merchant.id}>
               <Link href={`/dashboard/${merchant.id}`} className="flex items-center gap-4 px-5 py-4 transition-colors duration-100 hover:bg-surface-2">

@@ -55,11 +55,14 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
         {current === 1 ? (
           <div className="grid gap-8 md:grid-cols-[1fr_1.3fr]">
             <div>
-              <Mascot size={96} state="greeting" decorative />
-              <h1 className="mt-4 text-3xl font-extrabold tracking-tight">Let’s set up your Nia assistant</h1>
+              <span className="relative inline-grid place-items-center">
+              <span aria-hidden="true" className="nia-breathe absolute -inset-7 rounded-full" style={{ background: "radial-gradient(closest-side, rgb(107 222 230 / 0.42), rgb(159 184 252 / 0.2) 60%, transparent)" }} />
+              <Mascot size={96} state="greeting" decorative className="relative" />
+            </span>
+              <h1 className="mt-5 text-[clamp(2rem,4.2vw,3rem)] leading-[1.05] font-extrabold tracking-[-0.04em] text-balance">Let’s set up your Nia assistant</h1>
               <p className="mt-3 text-muted-foreground">A few details about your business. You can change everything later in Settings.</p>
             </div>
-            <div className="rounded-2xl border border-border bg-surface p-6 shadow-float">
+            <div className="rounded-3xl border border-ink-900/[0.06] bg-surface p-6 shadow-soft sm:p-8">
               <CreateBusinessForm />
             </div>
           </div>
@@ -99,7 +102,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
 
         {m && current === 6 ? (
           <StepShell title="Test Nia, then publish">
-            <div className="rounded-2xl border border-border bg-surface p-5">
+            <div className="rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft p-5">
               <p className="text-sm text-muted-foreground">Open your store, sign in as a customer and try: “What do you have in stock?”, then tell Nia a preference like your size. You’ll see Nia remember it — for real, on Walrus.</p>
               <Link href={`/s/${m.slug}/chat`} target="_blank" className={buttonClasses({ className: "mt-4" })}>
                 Open my store’s chat
@@ -119,7 +122,7 @@ export default async function OnboardingPage({ searchParams }: { searchParams: P
 function StepShell({ title, children, nextHref }: { title: string; children: React.ReactNode; nextHref?: string }) {
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-extrabold tracking-tight">{title}</h1>
+      <h1 className="text-[clamp(1.75rem,3vw,2.35rem)] leading-tight font-extrabold tracking-[-0.035em] text-balance">{title}</h1>
       {children}
       {nextHref ? (
         <div className="flex justify-end">
@@ -140,14 +143,14 @@ async function SellStep({ merchantId, nextHref }: { merchantId: string; nextHref
   return (
     <StepShell title="What do you sell?" nextHref={nextHref}>
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-border bg-surface p-5">
+        <div className="rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft p-5">
           <p className="font-semibold">Products</p>
           <p className="mt-1 text-sm text-muted-foreground">{p?.n ? `${p.n} in your catalog.` : "Items with prices, options (colour, size, volume) and stock."}</p>
           <Link href={`/dashboard/${merchantId}/catalog/products/new`} target="_blank" className={buttonClasses({ variant: "secondary", size: "sm", className: "mt-4" })}>
             Add a product
           </Link>
         </div>
-        <div className="rounded-2xl border border-border bg-surface p-5">
+        <div className="rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft p-5">
           <p className="font-semibold">Services & appointments</p>
           <p className="mt-1 text-sm text-muted-foreground">{s?.n ? `${s.n} in your catalog.` : "Bookable services with duration, deposit and availability."}</p>
           <Link href={`/dashboard/${merchantId}/catalog/services/new`} target="_blank" className={buttonClasses({ variant: "secondary", size: "sm", className: "mt-4" })}>

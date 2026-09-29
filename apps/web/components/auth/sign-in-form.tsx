@@ -75,7 +75,7 @@ export function SignInForm({
         ) : (
           <>
             <input type="hidden" name="email" value={state.email} />
-            <div className="rounded-xl bg-surface-2 px-4 py-3 text-sm">
+            <div className="rounded-2xl border border-ink-900/[0.05] bg-paper px-4 py-3 text-sm">
               Code sent to <span className="font-semibold">{state.email}</span>. It expires in 10 minutes.
               {state.devLogged ? (
                 <p className="mt-1 text-warning">Development mode: email isn’t configured, so the code was printed in the server console.</p>

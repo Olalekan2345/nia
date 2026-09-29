@@ -52,7 +52,7 @@ export default async function TryPage() {
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 pt-6 pb-16 sm:px-6 sm:pt-12">
         <div className="flex flex-col items-center text-center">
           <Mascot size={80} state="greeting" decorative />
-          <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-balance sm:text-4xl">Pick a shop to try Nia</h1>
+          <h1 className="mt-5 text-[clamp(2rem,4.2vw,3rem)] leading-[1.05] font-extrabold tracking-[-0.04em] text-balance">Pick a shop to try Nia</h1>
           <p className="mt-3 max-w-xl text-muted-foreground">
             Chat with the shop’s assistant, sign in, and tell it what you like. Start a new chat later and it remembers you, with memory stored on Walrus.
           </p>
@@ -70,7 +70,7 @@ export default async function TryPage() {
               <li key={s.slug}>
                 <Link
                   href={`/s/${s.slug}`}
-                  className="group flex h-full flex-col rounded-2xl border border-border bg-surface p-5 shadow-float transition-colors duration-100 hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="group flex h-full flex-col rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft p-5 shadow-float transition-colors duration-100 hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   <div className="flex items-center gap-3">
                     <MerchantMark name={s.name} logoUrl={s.logoUrl} accent={s.accentColor} size={44} />
@@ -94,7 +94,7 @@ export default async function TryPage() {
             ))}
           </ul>
         ) : (
-          <div className="mt-10 rounded-2xl border border-dashed border-border bg-surface p-8 text-center">
+          <div className="mt-10 rounded-3xl border border-dashed border-ink-900/10 bg-surface p-8 text-center">
             <p className="font-semibold">No demo shops on this deployment yet</p>
             <p className="mt-2 text-sm text-muted-foreground">
               Run <code className="rounded bg-surface-2 px-1.5 py-0.5 text-xs">pnpm db:seed</code> to add them, or set up your own shop.
@@ -103,7 +103,7 @@ export default async function TryPage() {
         )}
         <p className="mt-4 text-center text-xs text-muted-foreground">Demo shops are fictional businesses for trying Nia. The memories you create in them are real.</p>
 
-        <section aria-labelledby="any-business" className="mt-14 rounded-2xl border border-border bg-surface p-6 sm:p-8">
+        <section aria-labelledby="any-business" className="mt-14 rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft p-6 sm:p-8">
           <h2 id="any-business" className="text-xl font-extrabold tracking-tight">
             Run a different kind of business?
           </h2>

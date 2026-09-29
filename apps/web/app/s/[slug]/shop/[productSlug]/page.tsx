@@ -43,7 +43,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         </figure>
         <div>
           {product.category ? <p className="text-sm font-semibold text-accent-strong">{product.category}</p> : null}
-          <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-balance">{product.name}</h1>
+          <h1 className="mt-1 text-[clamp(2rem,4.2vw,3rem)] leading-[1.05] font-extrabold tracking-[-0.04em] text-balance">{product.name}</h1>
           {product.description ? <p className="mt-3 leading-relaxed text-muted-foreground">{product.description}</p> : null}
           <div className="mt-6">
             <ProductPurchase slug={slug} product={product} locale={merchant.locale} signedIn={Boolean(user)} />

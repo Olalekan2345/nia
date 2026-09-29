@@ -51,7 +51,7 @@ export default async function StoreHome({ params }: { params: Promise<{ slug: st
               {greetingFor(new Date(), merchant.timezone)}
               {firstName ? `, ${firstName}` : ""}
             </p>
-            <h1 className="mt-1 text-[28px] leading-tight font-extrabold tracking-tight text-balance md:text-4xl">What can I help you find today?</h1>
+            <h1 className="mt-1 text-[clamp(2rem,4.2vw,3rem)] leading-[1.05] font-extrabold tracking-[-0.04em] text-balance">What can I help you find today?</h1>
             {merchant.welcomeMessage ? <p className="mt-2 max-w-md text-[15px] text-muted-foreground">{merchant.welcomeMessage}</p> : null}
           </div>
           <Mascot size={104} state="greeting" className="md:hidden" decorative />
@@ -85,7 +85,7 @@ export default async function StoreHome({ params }: { params: Promise<{ slug: st
               All orders
             </Link>
           </div>
-          <Link href={`${base}/chat?q=${encodeURIComponent("Same as last time")}&send=1`} className="mt-3 flex items-center gap-4 rounded-2xl border border-border bg-surface p-4 transition-colors duration-100 hover:bg-surface-2">
+          <Link href={`${base}/chat?q=${encodeURIComponent("Same as last time")}&send=1`} className="mt-3 flex items-center gap-4 rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft p-4 transition-colors duration-100 hover:bg-surface-2">
             <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent-strong">
               <Repeat className="size-5" aria-hidden="true" />
             </span>
@@ -105,7 +105,7 @@ export default async function StoreHome({ params }: { params: Promise<{ slug: st
         </section>
       ) : null}
 
-      <section className="mt-6 rounded-2xl border border-border bg-surface p-4" aria-label="Memory">
+      <section className="mt-6 rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft p-4" aria-label="Memory">
         {customer ? (
           <Link href={`${base}/profile`} className="flex items-center gap-3">
             <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-memory-soft text-memory">
@@ -154,7 +154,7 @@ export default async function StoreHome({ params }: { params: Promise<{ slug: st
           </ul>
         </section>
       ) : (
-        <section className="mt-8 flex flex-col items-center rounded-2xl border border-dashed border-border p-8 text-center">
+        <section className="mt-8 flex flex-col items-center rounded-3xl border border-dashed border-ink-900/10 p-8 text-center">
           <Mascot size={72} state="idle" decorative />
           <p className="mt-3 font-semibold">The shelves are being stocked</p>
           <p className="mt-1 text-sm text-muted-foreground">{merchant.name} hasn’t added products yet. You can still ask Nia a question.</p>

@@ -25,7 +25,7 @@ export function StoreBottomNav({ slug, cartCount }: { slug: string; cartCount: n
   const pathname = usePathname();
   if (pathname.startsWith(`${base}/chat`)) return null; // chat owns the full viewport on mobile
   return (
-    <nav aria-label="Store" className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-border bg-surface/95 backdrop-blur-md md:hidden">
+    <nav aria-label="Store" className="safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-ink-900/[0.06] bg-surface/95 shadow-[0_-12px_30px_-24px_rgb(27_26_75/0.35)] backdrop-blur-md md:hidden">
       <ul className="mx-auto grid max-w-md grid-cols-5 px-2 pt-1.5">
         {ITEMS.map(({ href, label, icon: Icon }) => {
           const active = isActive(href);
@@ -35,11 +35,11 @@ export function StoreBottomNav({ slug, cartCount }: { slug: string; cartCount: n
                 href={`${base}${href}`}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "relative flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl text-[11px] font-semibold transition-colors duration-100",
+                  "relative flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl text-[11px] font-semibold transition-colors duration-150",
                   active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
-                <Icon className={cn("size-[22px]", active && "text-accent-strong")} strokeWidth={active ? 2.25 : 1.9} aria-hidden="true" />
+                <Icon className={cn("size-[22px]", active && "text-memory")} strokeWidth={active ? 2.25 : 1.9} aria-hidden="true" />
                 {label}
                 {label === "Orders" && cartCount > 0 ? (
                   <span className="absolute top-1 right-[calc(50%-18px)] grid min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-foreground tabular">
@@ -69,7 +69,7 @@ export function StoreTopNav({ slug }: { slug: string }) {
             key={label}
             href={`${base}${href}`}
             aria-current={active ? "page" : undefined}
-            className={cn("rounded-lg px-3 py-2 text-sm font-semibold transition-colors duration-100", active ? "bg-surface-2 text-foreground" : "text-muted-foreground hover:text-foreground")}
+            className={cn("rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-150", active ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-ink-900/[0.04] hover:text-foreground")}
           >
             {label}
           </Link>

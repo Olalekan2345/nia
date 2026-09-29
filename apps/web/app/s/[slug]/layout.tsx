@@ -27,15 +27,15 @@ export default async function StoreLayout({ children, params }: { children: Reac
 
   return (
     <div className="min-h-dvh" style={{ ["--merchant" as string]: merchant.accentColor }}>
-      <header className="sticky top-0 z-30 border-b border-border/70 bg-background/90 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 px-4 md:h-16 md:px-6">
+      <header className="sticky top-0 z-30 border-b border-ink-900/[0.06] bg-surface/90 backdrop-blur-md">
+        <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-3 px-4 md:h-[68px] md:px-6">
           <Link href={`/s/${slug}`} className="flex min-w-0 items-center gap-2.5 rounded-xl">
             <MerchantMark name={merchant.name} logoUrl={merchant.logoUrl} accent={merchant.accentColor} size={32} />
             <span className="truncate font-bold tracking-tight">{merchant.name}</span>
           </Link>
           <StoreTopNav slug={slug} />
           <div className="flex items-center gap-2">
-            <Link href="/market" className="hidden rounded-lg px-2 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground lg:inline">
+            <Link href="/market" className="hidden rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors duration-150 hover:bg-ink-900/[0.04] hover:text-foreground lg:inline">
               Walrus Market
             </Link>
             {merchant.isDemo ? (
@@ -48,7 +48,7 @@ export default async function StoreLayout({ children, params }: { children: Reac
         </div>
       </header>
       {merchant.isDemo ? (
-        <p className="border-b border-border bg-surface-2 px-4 py-1.5 text-center text-xs text-muted-foreground sm:hidden">Demo store — fictional business for trying Nia</p>
+        <p className="border-b border-ink-900/[0.06] bg-paper px-4 py-1.5 text-center text-xs text-muted-foreground sm:hidden">Demo store — fictional business for trying Nia</p>
       ) : null}
       <div className="pb-24 md:pb-10">{children}</div>
       <StoreBottomNav slug={slug} cartCount={cartCount} />

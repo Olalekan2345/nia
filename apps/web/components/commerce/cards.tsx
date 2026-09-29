@@ -59,7 +59,7 @@ export function ProductCard({ product, locale, actions, compact = false, highlig
   const pool = matched.size ? product.variants.filter((v) => matched.has(v.id)) : product.variants;
   const shown = multiAxis && !matched.size ? [] : pool.slice(0, compact ? 6 : 8);
   return (
-    <article className={cn("overflow-hidden rounded-2xl border border-border bg-surface", compact ? "flex gap-3 p-3" : "flex flex-col")}>
+    <article className={cn("overflow-hidden rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft", compact ? "flex gap-3 p-3" : "flex flex-col")}>
       <div className={cn(compact ? "w-24 shrink-0 sm:w-28" : "")}>
         <ProductVisual name={product.name} category={product.category} colours={colours} image={product.image} rounded={compact ? "rounded-xl" : "rounded-none"} />
       </div>
@@ -103,7 +103,7 @@ export function ServiceCard({ service, locale, timeZone, actions }: { service: S
     ? new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", timeZone }).format(new Date(service.nextAvailable))
     : null;
   return (
-    <article className="flex gap-3 rounded-2xl border border-border bg-surface p-3">
+    <article className="flex gap-3 rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft p-3">
       <div className="w-20 shrink-0 sm:w-24">
         <ProductVisual name={service.name} category={service.category} kind={service.offeringKind} image={service.image} />
       </div>
@@ -134,12 +134,12 @@ function lineQty(i: OrderSummaryData["items"][number]) {
 export function OrderSummaryCard({ order, locale, title, actions, footer }: { order: OrderSummaryData; locale: string; title?: string; actions?: ReactNode; footer?: ReactNode }) {
   const total = order.hasUnpricedItems ? "To be confirmed" : formatMoney(order.total, order.currency, { locale });
   return (
-    <article className="rounded-2xl border border-border bg-surface">
+    <article className="rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft">
       <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
         <h3 className="font-semibold">{title ?? (order.number ? `Order #${order.number}` : "Order summary")}</h3>
         <Badge tone={order.status === "draft" ? "neutral" : order.status === "cancelled" ? "danger" : order.status === "delivered" ? "success" : "accent"}>{order.statusLabel}</Badge>
       </header>
-      <ul className="divide-y divide-border px-4">
+      <ul className="divide-y divide-ink-900/[0.06] px-4">
         {order.items.map((i) => (
           <li key={i.id} className="flex items-start justify-between gap-3 py-3 text-sm">
             <div className="min-w-0">
@@ -190,7 +190,7 @@ export function OrderSummaryCard({ order, locale, title, actions, footer }: { or
 export function BookingCard({ booking, locale, actions, title }: { booking: BookingSummaryData; locale: string; actions?: ReactNode; title?: string }) {
   const when = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", timeZone: booking.timeZone }).format(new Date(booking.startAt));
   return (
-    <article className="rounded-2xl border border-border bg-surface p-4">
+    <article className="rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-semibold text-muted-foreground">{title ?? "Booking"}</p>

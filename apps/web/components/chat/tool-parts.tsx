@@ -219,7 +219,7 @@ function SlotPicker({ service, slots, actions }: { service: string; slots: SlotD
               type="button"
               disabled={actions.busy}
               onClick={() => actions.send(`Please book ${service} for ${s.label} (start ${s.startAt}).`)}
-              className="min-h-10 rounded-xl border border-border bg-surface px-3 py-2 text-sm font-semibold transition-colors duration-100 hover:border-accent hover:bg-accent-soft disabled:opacity-50"
+              className="min-h-10 rounded-2xl border border-ink-900/[0.06] bg-surface px-3 py-2 text-sm font-semibold transition-colors duration-100 hover:border-accent hover:bg-accent-soft disabled:opacity-50"
             >
               {s.label}
             </button>
@@ -342,7 +342,7 @@ function OrderConfirm({ summary, actions }: { summary: OrderSummaryData; actions
         </p>
       ) : null}
       {state === "done" ? (
-        <div className="rounded-2xl border border-border bg-surface-2 p-3 text-sm">
+        <div className="rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft-2 p-3 text-sm">
           <p className="font-semibold">What happens next</p>
           <p className="mt-1 text-muted-foreground">{payment?.instructions ?? "The shop will confirm availability and how to pay."}</p>
           {payment?.url ? (
@@ -360,7 +360,7 @@ function OrderConfirm({ summary, actions }: { summary: OrderSummaryData; actions
 function CartStrip({ cart, actions }: { cart: OrderSummaryData; actions: ChatActions }) {
   const count = cart.items.length;
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-border bg-surface px-3 py-2.5">
+    <div className="flex items-center gap-3 rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft px-3 py-2.5">
       <span className="grid size-9 place-items-center rounded-xl bg-accent-soft text-accent-strong">
         <ShoppingCart className="size-4" aria-hidden="true" />
       </span>
@@ -382,7 +382,7 @@ function CartStrip({ cart, actions }: { cart: OrderSummaryData; actions: ChatAct
 function RepeatChoices({ order, actions }: { order: OrderSummaryData; actions: ChatActions }) {
   const first = order.items[0];
   return (
-    <div className="rounded-2xl border border-border bg-surface p-3">
+    <div className="rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft p-3">
       <p className="text-xs font-semibold text-muted-foreground">Your last order · #{order.number}</p>
       <p className="mt-1 text-sm font-semibold">
         {first ? `${first.quantity}${first.unit && !["piece", "item"].includes(first.unit) ? ` ${first.unit}${first.quantity === 1 ? "" : "s"}` : " ×"} ${first.name}${first.variantLabel ? ` — ${first.variantLabel}` : ""}` : "—"}
@@ -405,7 +405,7 @@ function RepeatChoices({ order, actions }: { order: OrderSummaryData; actions: C
 
 function SignInPrompt({ actions }: { actions: ChatActions }) {
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-surface p-3">
+    <div className="flex flex-wrap items-center gap-3 rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft p-3">
       <p className="min-w-0 flex-1 text-sm">Sign in to use a cart, place orders or book — and so Nia can remember you.</p>
       <Link href={actions.signInHref} className={buttonClasses({ size: "sm" })}>
         Sign in
@@ -492,7 +492,7 @@ function MarketServiceResults({ services, actions }: { services: MarketToolServi
   return (
     <ul className="space-y-2.5">
       {services.slice(0, 4).map((s) => (
-        <li key={s.id} className="nia-enter flex gap-3 rounded-2xl border border-border bg-surface p-3">
+        <li key={s.id} className="nia-enter flex gap-3 rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft p-3">
           <div className="w-20 shrink-0 sm:w-24">
             <ProductVisual name={s.name} category={s.category} image={s.image ?? null} kind="SERVICE" />
           </div>
@@ -521,7 +521,7 @@ function MarketServiceResults({ services, actions }: { services: MarketToolServi
 function CompareResult({ products, actions }: { products: MarketToolProduct[]; actions: ChatActions }) {
   if (products.length < 2) return null;
   return (
-    <div className="nia-enter rounded-2xl border border-border bg-surface p-3">
+    <div className="nia-enter rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft p-3">
       <CompareTable products={products.map(fromMarketTool)} locale={actions.locale} />
     </div>
   );

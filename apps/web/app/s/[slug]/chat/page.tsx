@@ -57,7 +57,7 @@ export default async function ChatPage({ params, searchParams }: { params: Promi
 
   return (
     <main className="fixed inset-x-0 top-14 bottom-0 z-20 mx-auto max-w-3xl md:static md:h-[calc(100dvh-4rem-2.5rem)] md:py-4">
-      <div className="h-full overflow-hidden bg-background md:rounded-3xl md:border md:border-border md:bg-surface">
+      <div className="h-full overflow-hidden bg-surface md:rounded-[32px] md:border md:border-ink-900/[0.06] md:shadow-lift">
         <ChatView
           slug={slug}
           shopName={merchant.name}

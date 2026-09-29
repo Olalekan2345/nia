@@ -20,7 +20,7 @@ export default async function OrdersPage({ params, searchParams }: { params: Pro
     return (
       <main className="mx-auto flex max-w-md flex-col items-center px-4 pt-14 text-center">
         <Mascot size={96} state="idle" decorative />
-        <h1 className="mt-4 text-xl font-bold">Sign in to see your orders</h1>
+        <h1 className="mt-5 text-2xl leading-tight font-extrabold tracking-[-0.03em] text-balance">Sign in to see your orders</h1>
         <p className="mt-2 text-sm text-muted-foreground">Your cart, orders and bookings at {merchant.name} live here.</p>
         <Link href={`/s/${slug}/signin?next=/s/${slug}/orders`} className={buttonClasses({ size: "lg", className: "mt-6" })}>
           Sign in
@@ -42,7 +42,7 @@ export default async function OrdersPage({ params, searchParams }: { params: Pro
 
   return (
     <main className="mx-auto max-w-2xl space-y-8 px-4 pt-6 md:px-6">
-      <h1 className="text-2xl font-extrabold tracking-tight">Orders</h1>
+      <h1 className="text-[clamp(1.75rem,3vw,2.35rem)] leading-tight font-extrabold tracking-[-0.035em] text-balance">Orders</h1>
 
       {placed ? (
         <div className="rounded-2xl border border-success/25 bg-success-soft p-5" role="status">
@@ -69,7 +69,7 @@ export default async function OrdersPage({ params, searchParams }: { params: Pro
       ) : null}
 
       {empty ? (
-        <div className="flex flex-col items-center rounded-2xl border border-dashed border-border px-6 py-12 text-center">
+        <div className="flex flex-col items-center rounded-3xl border border-dashed border-ink-900/10 px-6 py-12 text-center">
           <Mascot size={88} state="idle" decorative />
           <p className="mt-4 font-semibold">No orders yet</p>
           <p className="mt-1 text-sm text-muted-foreground">Browse the shop or ask Nia to help you choose.</p>
@@ -89,7 +89,7 @@ export default async function OrdersPage({ params, searchParams }: { params: Pro
           <h2 id="past-orders" className="font-bold tracking-tight">
             Past orders
           </h2>
-          <ul className="mt-3 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+          <ul className="mt-3 divide-y divide-ink-900/[0.06] overflow-hidden rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft">
             {orders.map((o) => (
               <li key={o.id} className="flex items-start gap-3 px-4 py-4">
                 <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface-2">

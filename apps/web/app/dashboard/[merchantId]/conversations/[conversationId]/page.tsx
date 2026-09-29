@@ -31,7 +31,7 @@ export default async function ConversationDetail({ params }: { params: Promise<{
         <ArrowLeft className="size-4" aria-hidden="true" /> Conversations
       </Link>
       <div className="mb-6 flex flex-wrap items-center gap-2">
-        <h1 className="text-2xl font-extrabold tracking-tight">{conv.title ?? "Conversation"}</h1>
+        <h1 className="text-[clamp(1.75rem,3vw,2.35rem)] leading-tight font-extrabold tracking-[-0.035em] text-balance">{conv.title ?? "Conversation"}</h1>
         <Badge tone={conv.channel === "telegram" ? "info" : "neutral"}>{conv.channel}</Badge>
         {conv.memoryMode === "off" ? <Badge tone="warning">Memory off</Badge> : null}
         {customer ? (

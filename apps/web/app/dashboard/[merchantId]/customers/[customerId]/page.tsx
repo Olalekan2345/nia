@@ -53,24 +53,25 @@ export default async function CustomerDetail({ params }: { params: Promise<{ mer
         }
       />
 
-      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr] [&>*]:min-w-0">
         <Card>
           <CardHeader title={`Memory (${active.length} current)`} description="What Nia remembers about this customer. Customers can see, correct and forget these in their Memory Passport." />
           <CardBody>
             {active.length === 0 ? (
               <p className="text-sm text-muted-foreground">No memories yet.</p>
             ) : (
-              <ul className="divide-y divide-border">
+              <ul className="divide-y divide-ink-900/[0.06]">
                 {active.map((p) => (
-                  <li key={p.id} className="py-2.5">
+                  <li key={p.id} className="relative py-3 pl-6">
+                    <span className="nia-orb absolute top-[1.15rem] left-0 size-2.5" aria-hidden="true" />
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-medium">{p.label}</p>
+                      <p className="font-semibold tracking-tight">{p.label}</p>
                       <Badge tone="neutral">{MEMORY_TYPE_META[p.type].label}</Badge>
                       <Badge tone={p.persistStatus === "stored" ? "success" : "warning"}>{p.persistStatus}</Badge>
                     </div>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {CONFIRMATION_LABELS[p.confirmation]} · {p.channel ?? "web"} · {formatDateTime(p.validFrom, { timeZone: merchant.timezone })}
-                      {p.blobId ? <span className="font-mono"> · {p.blobId.slice(0, 12)}…</span> : null}
+                      {p.blobId ? <span className="font-mono text-[11px]"> · {p.blobId.slice(0, 12)}…</span> : null}
                     </p>
                   </li>
                 ))}
@@ -104,7 +105,7 @@ export default async function CustomerDetail({ params }: { params: Promise<{ mer
               {orderList.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No orders yet.</p>
               ) : (
-                <ul className="divide-y divide-border text-sm">
+                <ul className="divide-y divide-ink-900/[0.06] text-sm">
                   {orderList.map((o) => (
                     <li key={o.id}>
                       <Link href={`${base}/orders/${o.id}`} className="flex items-center gap-2 py-2 hover:opacity-80">

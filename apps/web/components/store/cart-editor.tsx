@@ -55,7 +55,7 @@ export function CartEditor({
 
   const total = cart.hasUnpricedItems ? "To be confirmed" : formatMoney(cart.total, cart.currency, { locale });
   return (
-    <section aria-labelledby="cart-title" className="rounded-2xl border border-border bg-surface">
+    <section aria-labelledby="cart-title" className="rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft">
       <header className="flex items-center justify-between border-b border-border px-4 py-3">
         <h2 id="cart-title" className="font-bold">
           Your cart
@@ -64,7 +64,7 @@ export function CartEditor({
           {cart.items.length} item{cart.items.length === 1 ? "" : "s"}
         </span>
       </header>
-      <ul className="divide-y divide-border px-4">
+      <ul className="divide-y divide-ink-900/[0.06] px-4">
         {cart.items.map((i) => (
           <li key={i.id} className="flex items-center gap-3 py-3">
             <div className="min-w-0 flex-1">
@@ -83,7 +83,7 @@ export function CartEditor({
                 <Plus className="size-4" aria-hidden="true" />
               </button>
             </div>
-            <button type="button" className="grid size-10 place-items-center rounded-xl text-muted-foreground hover:bg-surface-2 hover:text-danger" disabled={pending} onClick={() => run(() => removeCartItemAction(slug, i.id))} aria-label={`Remove ${i.name}`}>
+            <button type="button" className="grid size-10 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-danger-soft hover:text-danger" disabled={pending} onClick={() => run(() => removeCartItemAction(slug, i.id))} aria-label={`Remove ${i.name}`}>
               <Trash2 className="size-4" aria-hidden="true" />
             </button>
           </li>
@@ -140,7 +140,7 @@ export function CartEditor({
         <span className="text-xl font-bold tabular">{total}</span>
       </div>
       {error ? (
-        <p className="mx-4 mb-3 rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger" role="alert">
+        <p className="mx-4 mb-3 rounded-2xl border border-danger/15 bg-danger-soft px-4 py-2.5 text-sm text-danger" role="alert">
           {error}
         </p>
       ) : null}

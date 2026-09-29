@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, CircleAlert, History, Loader2, PenLine, Trash2 } from "lucide-react";
-import { Badge, Button, Input, cn, type BadgeTone } from "@nia/ui";
+import { Badge, Button, Input, Mascot, cn, type BadgeTone } from "@nia/ui";
 import { CONFIRMATION_LABELS, MEMORY_TYPE_META, PASSPORT_SECTION_LABELS, PASSPORT_SECTIONS, type MemoryConfirmation, type PassportSection } from "@nia/shared";
 import type { PassportEntry } from "@nia/memory";
 import { correctMemoryAction, forgetMemoryAction } from "@/app/actions/store";
@@ -41,19 +41,25 @@ export function MemoryPassport({ slug, entries, backend }: { slug: string; entri
   }
   if (active.length === 0) {
     return (
-      <p className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-        Nothing yet. Tell Nia your size, favourite colours or usual delivery area in chat — it’ll show up here, and you can correct or remove it any time.
-      </p>
+      <div className="relative flex flex-col items-center overflow-hidden rounded-3xl border border-dashed border-ink-900/10 bg-surface/70 px-6 py-10 text-center">
+        <div aria-hidden="true" className="absolute top-4 left-1/2 size-36 -translate-x-1/2 rounded-full" style={{ background: "radial-gradient(closest-side, rgb(107 222 230 / 0.25), transparent)" }} />
+        <Mascot size={64} state="remembering" decorative className="relative" />
+        <p className="relative mt-4 font-bold tracking-tight">Nia will keep useful preferences here</p>
+        <p className="relative mt-1.5 max-w-sm text-sm leading-relaxed text-muted-foreground">
+          Nothing yet. Tell Nia your size, favourite colours or usual delivery area in chat — it’ll show up here, and you can correct or remove it any time.
+        </p>
+      </div>
     );
   }
   return (
-    <div className="space-y-5">
+    <div className="space-y-7">
       {PASSPORT_SECTIONS.filter((s) => bySection.has(s)).map((section) => (
         <section key={section} aria-labelledby={`sec-${section}`}>
-          <h3 id={`sec-${section}`} className="text-xs font-bold tracking-wide text-muted-foreground uppercase">
+          <h3 id={`sec-${section}`} className="flex items-center gap-2 text-xs font-bold tracking-[0.12em] text-muted-foreground uppercase">
+            <span className="nia-orb size-2.5" aria-hidden="true" />
             {PASSPORT_SECTION_LABELS[section]}
           </h3>
-          <ul className="mt-2 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-surface">
+          <ul className="mt-3 divide-y divide-ink-900/[0.06] overflow-hidden rounded-3xl border border-aqua-200/60 bg-surface shadow-memory">
             {bySection.get(section)!.map((e) => (
               <PassportRow key={e.id} slug={slug} entry={e} previous={history.filter((h) => h.subjectKey === e.subjectKey && h.namespace === e.namespace)} backend={backend} />
             ))}
@@ -74,10 +80,13 @@ function PassportRow({ slug, entry, previous, backend }: { slug: string; entry: 
 
   const stored = entry.persistStatus === "stored";
   return (
-    <li className="px-4 py-3.5">
-      <div className="flex items-start gap-3">
+    <li className="px-4 py-4 sm:px-5">
+      <div className="flex items-start gap-3.5">
+        <span aria-hidden="true" className="mt-0.5 grid size-10 shrink-0 place-items-center rounded-2xl bg-linear-to-br from-aqua-50 to-periwinkle-50">
+          <span className="nia-orb size-3.5" />
+        </span>
         <div className="min-w-0 flex-1">
-          <p className="font-medium">{entry.label}</p>
+          <p className="font-semibold tracking-tight">{entry.label}</p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <Badge tone={CONF_TONE[entry.confirmation]}>{CONFIRMATION_LABELS[entry.confirmation]}</Badge>
             {stored ? (
@@ -96,22 +105,22 @@ function PassportRow({ slug, entry, previous, backend }: { slug: string; entry: 
           </div>
         </div>
         <div className="flex shrink-0 items-center">
-          <button type="button" onClick={() => setMode(mode === "why" ? "view" : "why")} className="inline-flex h-10 items-center gap-1 rounded-xl px-2.5 text-sm font-semibold text-muted-foreground hover:bg-surface-2 hover:text-foreground" aria-expanded={mode === "why"}>
+          <button type="button" onClick={() => setMode(mode === "why" ? "view" : "why")} className="inline-flex h-10 items-center gap-1 rounded-full px-3 text-sm font-semibold text-muted-foreground transition-colors duration-150 hover:bg-ink-900/[0.05] hover:text-foreground" aria-expanded={mode === "why"}>
             Why? <ChevronDown className={cn("size-4 transition-transform duration-150", mode === "why" && "rotate-180")} aria-hidden="true" />
           </button>
           {canCorrect ? (
-            <button type="button" onClick={() => setMode("correct")} className="grid size-10 place-items-center rounded-xl text-muted-foreground hover:bg-surface-2 hover:text-foreground" aria-label={`Correct “${entry.label}”`}>
+            <button type="button" onClick={() => setMode("correct")} className="grid size-10 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-ink-900/[0.05] hover:text-foreground" aria-label={`Correct “${entry.label}”`}>
               <PenLine className="size-4" aria-hidden="true" />
             </button>
           ) : null}
-          <button type="button" onClick={() => setMode("forget")} className="grid size-10 place-items-center rounded-xl text-muted-foreground hover:bg-danger-soft hover:text-danger" aria-label={`Forget “${entry.label}”`}>
+          <button type="button" onClick={() => setMode("forget")} className="grid size-10 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-danger-soft hover:text-danger" aria-label={`Forget “${entry.label}”`}>
             <Trash2 className="size-4" aria-hidden="true" />
           </button>
         </div>
       </div>
 
       {mode === "why" ? (
-        <dl className="nia-enter mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-xl bg-surface-2 p-3 text-sm">
+        <dl className="nia-enter mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 rounded-2xl border border-ink-900/[0.05] bg-paper p-4 text-sm sm:ml-[3.375rem]">
           <dt className="text-muted-foreground">Source</dt>
           <dd>
             {SOURCE[entry.sourceKind]}
@@ -180,7 +189,7 @@ function PassportRow({ slug, entry, previous, backend }: { slug: string; entry: 
       ) : null}
 
       {mode === "forget" ? (
-        <div className="nia-enter mt-3 rounded-xl border border-danger/20 bg-danger-soft p-3 text-sm">
+        <div className="nia-enter mt-3 rounded-2xl border border-danger/15 bg-danger-soft p-4 text-sm sm:ml-[3.375rem]">
           <p className="font-semibold text-danger">Forget this?</p>
           <p className="mt-1 text-foreground/80">
             Nia will stop using it immediately, in every channel. The encrypted copy on Walrus can’t be deleted instantly — it stays unreadable to Nia and expires with its storage period.

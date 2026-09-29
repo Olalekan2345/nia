@@ -157,7 +157,7 @@ export default async function MemoryPage({ params }: { params: Promise<{ merchan
           {perCustomer.length === 0 ? (
             <EmptyPanel title="No customer memories yet" body="When signed-in customers tell Nia their preferences or place orders, their memories appear here." state="thinking" />
           ) : (
-            <Table head={["Customer", "Stored by Nia", "Current", "On relayer", "Last write", ""]}>
+            <Table head={["Customer", "Stored by Nia", "Current", "On relayer", "Last write", ""]} className="rounded-2xl shadow-none">
               {perCustomer.map((c) => {
                 const onRelayer = relayer.counts.get(nsFor(c.customerId!));
                 return (
@@ -192,7 +192,7 @@ export default async function MemoryPage({ params }: { params: Promise<{ merchan
           <CardBody className="space-y-5">
             <OpsNoteForm merchantId={merchant.id} />
             {merchantNotes.length ? (
-              <ul className="divide-y divide-border rounded-xl border border-border">
+              <ul className="divide-y divide-ink-900/[0.06] rounded-xl border border-border">
                 {merchantNotes.map((n) => (
                   <li key={n.id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
                     <div className="min-w-0 flex-1">
@@ -224,7 +224,7 @@ export default async function MemoryPage({ params }: { params: Promise<{ merchan
           {recent.length === 0 ? (
             <p className="py-6 text-center text-sm text-muted-foreground">Nothing written yet.</p>
           ) : (
-            <Table head={["Memory", "Type", "Scope", "Status", "Blob ID", "Written"]}>
+            <Table head={["Memory", "Type", "Scope", "Status", "Blob ID", "Written"]} className="rounded-2xl shadow-none">
               {recent.map((r: MemoryRecord) => (
                 <tr key={r.id}>
                   <Td className="max-w-64">

@@ -14,7 +14,7 @@ export default async function MarketLayout({ children }: { children: React.React
   const user = await getSessionUser();
   return (
     <div className="min-h-dvh">
-      <header className="sticky top-0 z-30 border-b border-border/70 bg-background/85 backdrop-blur-md">
+      <header className="sticky top-0 z-30 border-b border-ink-900/[0.06] bg-surface/90 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 md:px-6">
           <Link href="/market" className="flex shrink-0 items-center gap-2 rounded-xl" aria-label="Walrus Market home">
             <Mascot size={34} decorative />
@@ -33,7 +33,7 @@ export default async function MarketLayout({ children }: { children: React.React
               name="q"
               type="search"
               placeholder="Search fabric, cakes, hair care…"
-              className="h-11 w-full rounded-2xl border border-border bg-surface pr-4 pl-10 text-[15px] placeholder:text-muted-foreground/80 focus-visible:border-accent focus-visible:ring-4 focus-visible:ring-ring/20 focus-visible:outline-none"
+              className="h-11 w-full rounded-full border border-ink-900/12 bg-surface pr-4 pl-10 text-[15px] placeholder:text-muted-foreground/75 transition-[border-color,box-shadow] duration-150 hover:border-ink-900/20 focus-visible:border-accent focus-visible:ring-4 focus-visible:ring-ring/15 focus-visible:outline-none"
             />
           </form>
           <nav className="ml-auto flex items-center gap-1.5 md:ml-0" aria-label="Market">
@@ -41,7 +41,7 @@ export default async function MarketLayout({ children }: { children: React.React
               <Sparkles className="size-4" aria-hidden="true" /> Ask Nia
             </Link>
             {user ? (
-              <Link href="/market/profile" className="grid size-10 place-items-center rounded-xl text-muted-foreground hover:bg-surface-2 hover:text-foreground" aria-label="Your market profile">
+              <Link href="/market/profile" className="grid size-10 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-ink-900/[0.05] hover:text-foreground" aria-label="Your market profile">
                 <UserRound className="size-5" aria-hidden="true" />
               </Link>
             ) : (
@@ -62,14 +62,14 @@ export default async function MarketLayout({ children }: { children: React.React
               name="q"
               type="search"
               placeholder="Search fabric, cakes, hair care…"
-              className="h-11 w-full rounded-2xl border border-border bg-surface pr-4 pl-10 text-[16px] placeholder:text-muted-foreground/80 focus-visible:border-accent focus-visible:ring-4 focus-visible:ring-ring/20 focus-visible:outline-none"
+              className="h-11 w-full rounded-full border border-ink-900/12 bg-surface pr-4 pl-10 text-[16px] placeholder:text-muted-foreground/75 transition-[border-color,box-shadow] duration-150 hover:border-ink-900/20 focus-visible:border-accent focus-visible:ring-4 focus-visible:ring-ring/15 focus-visible:outline-none"
             />
           </div>
         </form>
       </header>
       {children}
       <CompareTray />
-      <footer className="border-t border-border py-8 text-sm text-muted-foreground">
+      <footer className="border-t border-ink-900/[0.06] bg-surface py-10 text-sm text-muted-foreground">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 md:px-6">
           <p>Shops set their own prices, stock and delivery. Demo shops are fictional businesses for trying Nia.</p>
           <nav className="flex gap-4" aria-label="Footer">

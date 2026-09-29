@@ -42,7 +42,7 @@ export function RevenueChart({ data, days, currency, locale }: { data: Day[]; da
           <p className="text-sm font-semibold">Revenue from paid orders · last {days} days</p>
           <p className="mt-1 text-2xl font-bold tabular">{formatMoney(total, currency, { locale })}</p>
         </div>
-        <button type="button" onClick={() => setTable((t) => !t)} className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-muted-foreground hover:bg-surface-2 hover:text-foreground" aria-pressed={table}>
+        <button type="button" onClick={() => setTable((t) => !t)} className="rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors duration-150 hover:bg-ink-900/[0.05] hover:text-foreground" aria-pressed={table}>
           {table ? "Chart view" : "Table view"}
         </button>
       </div>
@@ -57,7 +57,7 @@ export function RevenueChart({ data, days, currency, locale }: { data: Day[]; da
                 <th scope="col" className="py-1.5 text-right font-semibold">Revenue</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border">
+            <tbody className="divide-y divide-ink-900/[0.06]">
               {series.filter((s) => s.orders > 0).map((s) => (
                 <tr key={s.day}>
                   <td className="py-1.5">{label(s.day)}</td>
@@ -97,7 +97,7 @@ export function RevenueChart({ data, days, currency, locale }: { data: Day[]; da
           </div>
           {hover !== null ? (
             <div
-              className="pointer-events-none absolute -top-2 z-10 -translate-x-1/2 -translate-y-full rounded-xl border border-border bg-surface px-3 py-2 text-xs shadow-float"
+              className="pointer-events-none absolute -top-2 z-10 -translate-x-1/2 -translate-y-full rounded-2xl border border-ink-900/[0.06] bg-surface px-3 py-2 text-xs shadow-float"
               style={{ left: `${((hover + 0.5) / series.length) * 100}%` }}
               role="status"
             >

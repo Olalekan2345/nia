@@ -155,7 +155,7 @@ export function ProfileForm({ merchantId, initial }: { merchantId: string; initi
         </Field>
         <Field label="Brand colour" htmlFor="p-color" hint="Used for your logo mark — pick a darker shade for contrast.">
           <div className="flex gap-2">
-            <input type="color" aria-label="Pick brand colour" value={v.accentColor} onChange={(e) => set("accentColor", e.target.value)} className="h-11 w-14 cursor-pointer rounded-xl border border-border bg-surface p-1" />
+            <input type="color" aria-label="Pick brand colour" value={v.accentColor} onChange={(e) => set("accentColor", e.target.value)} className="h-11 w-14 cursor-pointer rounded-2xl border border-ink-900/[0.06] bg-surface p-1" />
             <Input id="p-color" value={v.accentColor} onChange={(e) => set("accentColor", e.target.value)} maxLength={7} className="font-mono" />
           </div>
         </Field>
@@ -293,9 +293,9 @@ export function FulfilmentForm({
           {v.areas.map((a, i) => {
             const upd = (patch: Partial<typeof a>) => setV({ ...v, areas: v.areas.map((x, j) => (j === i ? { ...x, ...patch } : x)) });
             return (
-              <div key={i} className="grid grid-cols-[1.5fr_1fr_0.8fr_auto_auto] items-end gap-2">
-                <Field label={i === 0 ? "Area" : ""} htmlFor={`a-n-${i}`}>
-                  <Input id={`a-n-${i}`} aria-label="Area name" value={a.name} onChange={(e) => upd({ name: e.target.value })} />
+              <div key={i} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-end gap-2 rounded-2xl border border-ink-900/[0.06] bg-paper p-3 sm:grid-cols-[1.5fr_1fr_0.8fr_auto_auto] sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0">
+                <Field label={i === 0 ? "Area" : ""} htmlFor={`a-n-${i}`} className="col-span-4 sm:col-span-1">
+                  <Input id={`a-n-${i}`} aria-label="Area name" placeholder="Area" value={a.name} onChange={(e) => upd({ name: e.target.value })} />
                 </Field>
                 <Field label={i === 0 ? "Fee" : ""} htmlFor={`a-f-${i}`}>
                   <Input id={`a-f-${i}`} aria-label="Delivery fee" inputMode="decimal" value={a.fee} onChange={(e) => upd({ fee: e.target.value.replace(/[^\d.]/g, "") })} placeholder="quote" />
@@ -306,7 +306,7 @@ export function FulfilmentForm({
                 <label className="flex h-11 items-center gap-2 text-xs font-semibold">
                   <Switch checked={a.sameDay} onChange={(on) => upd({ sameDay: on })} label={`Same day for ${a.name || "area"}`} /> Same day
                 </label>
-                <button type="button" onClick={() => setV({ ...v, areas: v.areas.filter((_, j) => j !== i) })} className="grid size-11 place-items-center rounded-xl text-muted-foreground hover:bg-danger-soft hover:text-danger" aria-label={`Remove ${a.name || "area"}`}>
+                <button type="button" onClick={() => setV({ ...v, areas: v.areas.filter((_, j) => j !== i) })} className="grid size-11 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-danger-soft hover:text-danger" aria-label={`Remove ${a.name || "area"}`}>
                   <Trash2 className="size-4" aria-hidden="true" />
                 </button>
               </div>
@@ -345,8 +345,13 @@ export function HoursForm({ merchantId, initial }: { merchantId: string; initial
         {WEEKDAYS.map((d) => {
           const w = v[d];
           return (
-            <li key={d} className="grid grid-cols-[7rem_auto_1fr_1fr] items-center gap-3">
-              <span className="text-sm font-semibold">{DAY[d]}</span>
+            <li key={d} className="grid grid-cols-[3.25rem_auto_minmax(0,1fr)_minmax(0,1fr)] items-center gap-2 sm:grid-cols-[7rem_auto_1fr_1fr] sm:gap-3 [&_input]:min-w-0 [&_input]:px-2.5 sm:[&_input]:px-4">
+              <span className="text-sm font-semibold">
+                <span className="sm:hidden" aria-hidden="true">
+                  {DAY[d].slice(0, 3)}
+                </span>
+                <span className="max-sm:sr-only">{DAY[d]}</span>
+              </span>
               <Switch checked={Boolean(w)} onChange={(on) => setV({ ...v, [d]: on ? ["09:00", "18:00"] : null })} label={`Open on ${DAY[d]}`} />
               {w ? (
                 <>
@@ -431,7 +436,7 @@ export function KnowledgeManager({
   const { busy, save, status } = useSave();
   return (
     <Section id="knowledge" title="Knowledge base" description="Policies and FAQs Nia can quote. Tick “Remember in Walrus” to also store an entry in your shop’s Walrus memory for semantic recall.">
-      <ul className="divide-y divide-border rounded-xl border border-border">
+      <ul className="divide-y divide-ink-900/[0.06] rounded-xl border border-border">
         {entries.length === 0 ? <li className="px-4 py-6 text-center text-sm text-muted-foreground">No entries yet.</li> : null}
         {entries.map((e) => (
           <li key={e.id} className="flex items-start gap-3 px-4 py-3">
@@ -455,7 +460,7 @@ export function KnowledgeManager({
           </li>
         ))}
       </ul>
-      <div className="space-y-3 rounded-xl bg-surface-2 p-4">
+      <div className="space-y-3 rounded-2xl border border-ink-900/[0.05] bg-paper p-5">
         <p className="text-sm font-semibold">{draft.id ? "Edit entry" : "New entry"}</p>
         <div className="grid gap-3 sm:grid-cols-[12rem_1fr]">
           <Field label="Category" htmlFor="k-cat">
@@ -573,7 +578,7 @@ export function TeamManager({ merchantId, members, invites, isOwner }: { merchan
   const { busy, save, status } = useSave();
   return (
     <Section id="team" title="Team" description="Owners manage everything; admins manage settings and catalog; staff handle orders, bookings and catalog.">
-      <ul className="divide-y divide-border rounded-xl border border-border">
+      <ul className="divide-y divide-ink-900/[0.06] rounded-xl border border-border">
         {members.map((m) => (
           <li key={m.userId} className="flex items-center gap-3 px-4 py-2.5 text-sm">
             <span className="min-w-0 flex-1 truncate">{m.email}</span>

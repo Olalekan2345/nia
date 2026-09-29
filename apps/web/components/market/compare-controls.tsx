@@ -33,7 +33,7 @@ export function CompareTray() {
   const ready = compare.ids.length >= 2;
   return (
     <div className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4" role="region" aria-label="Compare selection">
-      <div className="flex items-center gap-2 rounded-2xl border border-border bg-surface/95 p-2 pl-4 shadow-float backdrop-blur-md">
+      <div className="flex items-center gap-2 rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft/95 p-2 pl-4 shadow-float backdrop-blur-md">
         <GitCompareArrows className="size-4 text-accent-strong" aria-hidden="true" />
         <p className="text-sm font-semibold">
           {compare.ids.length} of {COMPARE_MAX} selected
@@ -45,7 +45,7 @@ export function CompareTray() {
         ) : (
           <span className="px-2 text-xs text-muted-foreground">Pick one more</span>
         )}
-        <button type="button" onClick={compare.clear} className="grid size-9 place-items-center rounded-xl text-muted-foreground hover:bg-surface-2 hover:text-foreground" aria-label="Clear selection">
+        <button type="button" onClick={compare.clear} className="grid size-9 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-ink-900/[0.05] hover:text-foreground" aria-label="Clear selection">
           <X className="size-4" aria-hidden="true" />
         </button>
       </div>

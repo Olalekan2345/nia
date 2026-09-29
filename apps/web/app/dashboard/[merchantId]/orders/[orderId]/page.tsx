@@ -32,7 +32,7 @@ export default async function OrderDetail({ params }: { params: Promise<{ mercha
       <Link href={`${base}/orders`} className="mb-3 inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-4" aria-hidden="true" /> Orders
       </Link>
-      <h1 className="mb-6 text-2xl font-extrabold tracking-tight">Order #{o.number}</h1>
+      <h1 className="mb-8 text-[clamp(1.75rem,3vw,2.35rem)] leading-tight font-extrabold tracking-[-0.035em] text-balance">Order #{o.number}</h1>
       <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
         <div className="space-y-4">
           <OrderSummaryCard order={summary} locale={merchant.locale} title="Items" />
@@ -54,7 +54,7 @@ export default async function OrderDetail({ params }: { params: Promise<{ mercha
               ) : null}
               <p className="text-muted-foreground">{customer?.email ?? ""}</p>
               {o.deliveryAddress ? <p className="mt-2">{o.deliveryAddress}</p> : null}
-              {o.notes ? <p className="mt-2 rounded-xl bg-surface-2 p-2">Note: {o.notes}</p> : null}
+              {o.notes ? <p className="mt-2 rounded-2xl border border-ink-900/[0.05] bg-paper p-3">Note: {o.notes}</p> : null}
               <dl className="mt-3 grid grid-cols-2 gap-2">
                 <dt className="text-muted-foreground">Channel</dt>
                 <dd>{o.channel}</dd>

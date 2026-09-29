@@ -3,21 +3,22 @@ import { cn } from "./cn";
 
 /* ─────────────────────────────── Button ─────────────────────────────── */
 
+/** The landing page's pill buttons: navy primary with a soft lift, white secondary with a hairline. */
 const BUTTON_VARIANTS = {
-  primary: "bg-primary text-primary-foreground hover:bg-primary/90",
-  accent: "bg-accent text-accent-foreground hover:bg-accent/90",
-  secondary: "bg-surface text-foreground border border-border hover:bg-surface-2",
-  ghost: "text-foreground hover:bg-surface-2",
-  subtle: "bg-surface-2 text-foreground hover:bg-border/60",
+  primary: "bg-primary text-primary-foreground shadow-[0_10px_30px_-14px_rgb(27_26_75/0.7)] hover:bg-ink-800 motion-safe:hover:-translate-y-px",
+  accent: "bg-accent text-accent-foreground shadow-[0_10px_30px_-14px_rgb(83_82_224/0.7)] hover:bg-accent/90 motion-safe:hover:-translate-y-px",
+  secondary: "bg-surface text-foreground border border-ink-900/12 hover:border-ink-900/25 hover:bg-surface",
+  ghost: "text-foreground hover:bg-ink-900/[0.05]",
+  subtle: "bg-surface-2 text-foreground hover:bg-surface-2/70",
   danger: "bg-danger text-white hover:bg-danger/90",
   link: "text-accent-strong underline-offset-4 hover:underline px-0 h-auto",
 } as const;
 
 const BUTTON_SIZES = {
-  sm: "h-9 px-3 text-sm gap-1.5 rounded-xl",
-  md: "h-11 px-4 text-sm gap-2 rounded-xl",
-  lg: "h-12 px-5 text-base gap-2 rounded-2xl",
-  icon: "h-10 w-10 rounded-xl",
+  sm: "h-9 px-4 text-sm gap-1.5 rounded-full",
+  md: "h-11 px-5 text-[15px] gap-2 rounded-full",
+  lg: "h-12 px-6 text-[15px] gap-2 rounded-full",
+  icon: "h-10 w-10 rounded-full",
 } as const;
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -29,7 +30,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 export function buttonClasses({ variant = "primary", size = "md", className }: { variant?: keyof typeof BUTTON_VARIANTS; size?: keyof typeof BUTTON_SIZES; className?: string } = {}) {
   return cn(
     "inline-flex items-center justify-center font-semibold whitespace-nowrap select-none",
-    "transition-[background-color,color,transform,box-shadow] duration-100 ease-out motion-safe:active:scale-[0.98]",
+    "transition-[background-color,color,border-color,transform,box-shadow] duration-200 ease-out motion-safe:active:scale-[0.98]",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
     "disabled:pointer-events-none disabled:opacity-50",
     BUTTON_VARIANTS[variant],
@@ -62,14 +63,14 @@ export function Spinner({ className }: { className?: string }) {
 /* ─────────────────────────────── Surfaces ─────────────────────────────── */
 
 export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("rounded-2xl border border-border bg-surface", className)} {...props} />;
+  return <div className={cn("rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft", className)} {...props} />;
 }
 
 export function CardHeader({ title, description, action, className }: { title: ReactNode; description?: ReactNode; action?: ReactNode; className?: string }) {
   return (
-    <div className={cn("flex items-start justify-between gap-4 p-5 pb-0", className)}>
+    <div className={cn("flex items-start justify-between gap-4 p-6 pb-0", className)}>
       <div className="min-w-0">
-        <h3 className="text-[15px] font-semibold tracking-tight text-foreground">{title}</h3>
+        <h3 className="text-base font-bold tracking-tight text-foreground">{title}</h3>
         {description ? <p className="mt-1 text-sm text-muted-foreground">{description}</p> : null}
       </div>
       {action ? <div className="shrink-0">{action}</div> : null}
@@ -78,7 +79,7 @@ export function CardHeader({ title, description, action, className }: { title: R
 }
 
 export function CardBody({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("p-5", className)} {...props} />;
+  return <div className={cn("p-6", className)} {...props} />;
 }
 
 /* ─────────────────────────────── Badge ─────────────────────────────── */
@@ -106,24 +107,25 @@ export function Badge({ tone = "neutral", className, children, dot = false }: { 
 
 /* ─────────────────────────────── Form fields ─────────────────────────────── */
 
+/** Rounded white fields with a hairline and the NIA accent focus ring. */
 const FIELD = cn(
-  "w-full rounded-xl border border-border bg-surface px-3.5 text-[15px] text-foreground placeholder:text-muted-foreground/80",
-  "transition-[border-color,box-shadow] duration-100 ease-out",
-  "focus-visible:outline-none focus-visible:border-accent focus-visible:ring-4 focus-visible:ring-ring/20",
+  "w-full rounded-2xl border border-ink-900/12 bg-surface px-4 text-[15px] text-foreground placeholder:text-muted-foreground/75",
+  "transition-[border-color,box-shadow] duration-150 ease-out hover:border-ink-900/20",
+  "focus-visible:outline-none focus-visible:border-accent focus-visible:ring-4 focus-visible:ring-ring/15",
   "disabled:cursor-not-allowed disabled:opacity-60 aria-[invalid=true]:border-danger",
 );
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...props }, ref) {
-  return <input ref={ref} className={cn(FIELD, "h-11", className)} {...props} />;
+  return <input ref={ref} className={cn(FIELD, "h-12", className)} {...props} />;
 });
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea({ className, ...props }, ref) {
-  return <textarea ref={ref} className={cn(FIELD, "min-h-24 py-2.5 leading-relaxed", className)} {...props} />;
+  return <textarea ref={ref} className={cn(FIELD, "min-h-24 py-3 leading-relaxed", className)} {...props} />;
 });
 
 export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function Select({ className, children, ...props }, ref) {
   return (
-    <select ref={ref} className={cn(FIELD, "h-11 appearance-none bg-[length:16px] bg-[right_12px_center] bg-no-repeat pr-10 nia-select", className)} {...props}>
+    <select ref={ref} className={cn(FIELD, "h-12 appearance-none bg-[length:16px] bg-[right_14px_center] bg-no-repeat pr-10 nia-select", className)} {...props}>
       {children}
     </select>
   );
@@ -173,11 +175,11 @@ export function Switch({ checked, onChange, label, name, disabled }: { checked: 
 /* ─────────────────────────────── States ─────────────────────────────── */
 
 export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("rounded-xl bg-surface-2 motion-safe:animate-pulse", className)} aria-hidden="true" />;
+  return <div className={cn("nia-skeleton rounded-2xl", className)} aria-hidden="true" />;
 }
 
 export function Divider({ className }: { className?: string }) {
-  return <hr className={cn("border-0 border-t border-border", className)} />;
+  return <hr className={cn("border-0 border-t border-ink-900/[0.06]", className)} />;
 }
 
 export function Kbd({ children }: { children: ReactNode }) {

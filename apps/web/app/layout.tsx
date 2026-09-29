@@ -31,15 +31,12 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f6f5fd" },
-    { media: "(prefers-color-scheme: dark)", color: "#0f0e26" },
-  ],
+  themeColor: "#fbfbfe",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${manrope.variable} ${jetbrains.variable}`}>
+    <html lang="en" data-theme="light" className={`${manrope.variable} ${jetbrains.variable}`}>
       <body className="min-h-dvh bg-background font-sans text-foreground antialiased">{children}</body>
     </html>
   );

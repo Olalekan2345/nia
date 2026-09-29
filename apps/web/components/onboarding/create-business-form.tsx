@@ -79,7 +79,7 @@ export function CreateBusinessForm() {
         {template !== "none" ? <p className="mt-2 text-xs text-warning">Sample items are fictional — edit or remove them before you publish.</p> : null}
       </fieldset>
       {state.error ? (
-        <p className="rounded-xl bg-danger-soft px-3 py-2 text-sm text-danger" role="alert">
+        <p className="rounded-2xl border border-danger/15 bg-danger-soft px-4 py-2.5 text-sm text-danger" role="alert">
           {state.error}
         </p>
       ) : null}
