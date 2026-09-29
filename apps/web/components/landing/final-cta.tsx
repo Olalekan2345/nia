@@ -21,8 +21,8 @@ export function FinalCTA() {
         <Reveal delay={0.2}>
           <p className="mx-auto mt-6 max-w-md text-lg text-muted-foreground">Give your business an AI assistant that knows your returning customers.</p>
           <div className="mt-10 flex flex-wrap justify-center gap-3">
-            <Cta href="/try" arrow>
-              Try Nia
+            <Cta href="/market/signin" arrow>
+              Sign in &amp; shop with Nia
             </Cta>
             <Cta href="/signin?next=/onboarding" variant="secondary">
               Build with Nia

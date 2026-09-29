@@ -58,8 +58,8 @@ export function Hero() {
           </p>
 
           <div className="nia-in mt-9 flex flex-wrap items-center gap-3" style={enter(0.5)}>
-            <Cta href="/try" arrow>
-              Try Nia
+            <Cta href="/market/signin" arrow>
+              Sign in &amp; shop with Nia
             </Cta>
             <Cta href="#memory" variant="secondary">
               See how memory works

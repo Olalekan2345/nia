@@ -51,7 +51,7 @@ export async function POST(req: Request) {
       purpose: body.purpose,
       userId: body.purpose === "connect" ? user!.id : null,
       merchantId: shop?.id ?? null,
-      nextPath: safeNext(body.next, body.shop ? `/s/${body.shop}` : "/dashboard"),
+      nextPath: safeNext(body.next, body.shop ? `/s/${body.shop}` : "/market"),
       device: describeDevice(req.headers.get("user-agent")),
     });
     const url = botLink(request.startToken);

@@ -67,6 +67,7 @@ import {
   serviceCaption,
   storefrontUrl,
   toTelegramHtml,
+  marketUrl,
   welcomeKeyboard,
   welcomeText,
 } from "./format";
@@ -348,7 +349,7 @@ async function handleLoginDecision(c: ChatContext, q: TgCallbackQuery, requestId
   const decision = await decideTelegramLogin(db, { requestId, tg: tgRef(q.from), choice });
   if (q.message) await bot.editReplyMarkup(c.chatId, q.message.message_id).catch(() => {});
   const text = {
-    approved: "✅ <b>Confirmed.</b> Go back to your browser — it signs you in automatically.",
+    approved: "✅ <b>Confirmed.</b> Go back to your browser — it signs you in and opens Walrus Market.",
     denied: "Okay — nobody was signed in.",
     wrong_number: "That number didn't match the website, so I cancelled this sign-in to keep your account safe. If it was you, start again from the website.",
     expired: "This sign-in request expired. Start again from the website.",
@@ -356,7 +357,10 @@ async function handleLoginDecision(c: ChatContext, q: TgCallbackQuery, requestId
     invalid: "This sign-in request isn't valid any more. Start again from the website.",
   }[decision];
   await bot.answerCallbackQuery(q.id, decision === "approved" ? "Confirmed" : undefined).catch(() => {});
-  await bot.sendMessage(c.chatId, text, { html: true });
+  await bot.sendMessage(c.chatId, text, {
+    html: true,
+    ...(decision === "approved" ? { keyboard: { inline_keyboard: [[{ text: "🛍 Open Walrus Market", url: marketUrl(c.deps.appUrl) }]] } } : {}),
+  });
   if (decision === "approved") {
     // Carry on with the shop the browser was on.
     const [req] = await db.select({ merchantId: telegramLoginRequests.merchantId }).from(telegramLoginRequests).where(eq(telegramLoginRequests.id, requestId));

@@ -5,7 +5,7 @@ import type { FullConfig } from "@playwright/test";
  * with a fresh build directory that can take longer than a test's navigation
  * timeout. Compile the main routes once before the tests start.
  */
-const ROUTES = ["/", "/try", "/signin", "/onboarding", "/dashboard", "/s/adire-lane", "/s/adire-lane/signin", "/s/adire-lane/shop", "/s/adire-lane/chat", "/s/adire-lane/orders", "/s/adire-lane/profile", "/market", "/market/compare", "/market/nia", "/market/profile", "/market/signin"];
+const ROUTES = ["/", "/signin", "/onboarding", "/dashboard", "/s/adire-lane", "/s/adire-lane/signin", "/s/adire-lane/shop", "/s/adire-lane/chat", "/s/adire-lane/orders", "/s/adire-lane/profile", "/market", "/market/compare", "/market/nia", "/market/profile", "/market/signin"];
 
 export default async function warmUp(config: FullConfig) {
   const baseURL = config.projects[0]?.use.baseURL;

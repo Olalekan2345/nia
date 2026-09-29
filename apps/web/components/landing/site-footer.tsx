@@ -6,12 +6,11 @@ const REPO = "https://github.com/Olalekan2345/nia";
 
 export function SiteFooter({ telegramUrl }: { telegramUrl: string | null }) {
   const links: { label: string; href: string; external?: boolean }[] = [
-    { label: "Product", href: "/try" },
+    { label: "Walrus Market", href: "/market" },
     { label: "For businesses", href: "/signin?next=/onboarding" },
     ...(telegramUrl ? [{ label: "Telegram", href: telegramUrl, external: true }] : []),
     { label: "Memory", href: "#memory" },
     { label: "Privacy", href: "#privacy" },
-    { label: "Walrus Market", href: "/market" },
     { label: "GitHub", href: REPO, external: true },
     { label: "Documentation", href: `${REPO}#readme`, external: true },
   ];

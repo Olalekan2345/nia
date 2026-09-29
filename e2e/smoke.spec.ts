@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("landing page explains Nia and links to the demo", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Every customer deserves to feel remembered.");
-  await expect(page.getByRole("link", { name: "Try Nia" }).first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /shop with Nia/ }).first()).toHaveAttribute("href", "/market/signin");
   // The hero artwork is the one eagerly loaded image, and it actually decodes.
   const hero = page.getByRole("img", { name: /Nia, the walrus shopping assistant/ });
   await expect(hero).toBeVisible();
@@ -23,17 +23,17 @@ test("landing page explains Nia and links to the demo", async ({ page }) => {
   await expect(page.locator("#hero-title")).toBeFocused();
 });
 
-test("demo picker shows shops from different business types", async ({ page }) => {
+test("old /try links land in Walrus Market, which lists shops of different business types", async ({ page }) => {
   await page.goto("/try");
-  await expect(page.getByRole("heading", { name: "Pick a shop to try Nia" })).toBeVisible();
-  for (const name of ["Adire Lane", "Glow Theory Studio", "Crumb & Co."]) await expect(page.getByRole("link", { name: new RegExp(name) })).toBeVisible();
+  await expect(page).toHaveURL(/\/market$/);
+  for (const name of ["Adire Lane", "Glow Theory Studio", "Crumb & Co."]) await expect(page.locator(`a[href^="/s/"]`, { hasText: name }).first()).toBeVisible();
   await expect(page.getByText("Salon & barbering").first()).toBeVisible();
   await expect(page.getByText("Bakery & desserts").first()).toBeVisible();
 });
 
 test("demo storefront lists real catalog items and a working search", async ({ page }) => {
-  await page.goto("/try");
-  await page.getByRole("link", { name: /Adire Lane/ }).click();
+  await page.goto("/market");
+  await page.locator(`a[href="/s/adire-lane"]`).first().click();
   await expect(page).toHaveURL(/\/s\/adire-lane$/);
   await expect(page.getByRole("heading", { name: "What can I help you find today?" })).toBeVisible();
   await page.goto("/s/adire-lane/shop?q=ankara");

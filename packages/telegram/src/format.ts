@@ -58,6 +58,11 @@ export function storefrontUrl(appUrl: string, merchant: Pick<Merchant, "slug">, 
   return `${appUrl}/s/${merchant.slug}${path}`;
 }
 
+/** Walrus Market: where signing in lands on the web. */
+export function marketUrl(appUrl: string): string {
+  return `${appUrl}/market`;
+}
+
 export function welcomeText(merchant: Merchant, linked: boolean): string {
   return [
     `👋 <b>Hi, I'm Nia</b> — ${escapeHtml(merchant.name)}'s shopping assistant.`,
@@ -80,7 +85,10 @@ export function welcomeKeyboard(appUrl: string, merchant: Merchant, hasServices:
       { text: "🧾 My last order", callback_data: CB.action("last") },
       { text: "🔗 Link account", callback_data: CB.action("link") },
     ],
-    [{ text: "Open the shop", url: storefrontUrl(appUrl, merchant) }],
+    [
+      { text: "Open the shop", url: storefrontUrl(appUrl, merchant) },
+      { text: "🛍 Walrus Market", url: marketUrl(appUrl) },
+    ],
   ];
   return { inline_keyboard: rows };
 }

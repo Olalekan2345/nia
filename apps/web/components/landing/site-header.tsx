@@ -54,11 +54,11 @@ export function SiteHeader() {
           ))}
         </nav>
         <div className="flex items-center gap-1.5 sm:gap-2">
-          <Link href="/signin" className="hidden h-10 items-center rounded-full px-4 text-[15px] font-semibold text-ink-900/80 hover:text-ink-900 sm:inline-flex">
+          <Link href="/market/signin" className="hidden h-10 items-center rounded-full px-4 text-[15px] font-semibold text-ink-900/80 hover:text-ink-900 sm:inline-flex">
             Sign in
           </Link>
-          <Link href="/try" className="inline-flex h-10 items-center rounded-full bg-ink-900 px-5 text-[15px] font-semibold text-white transition-colors duration-150 hover:bg-ink-800 focus-visible:outline-offset-4">
-            Try Nia
+          <Link href="/market/signin" className="inline-flex h-10 items-center rounded-full bg-ink-900 px-5 text-[15px] font-semibold text-white transition-colors duration-150 hover:bg-ink-800 focus-visible:outline-offset-4">
+            Shop with Nia
           </Link>
           <button
             ref={menuButton}
@@ -75,7 +75,7 @@ export function SiteHeader() {
       </div>
       <nav id="landing-menu" aria-label="Menu" hidden={!open} className="border-t border-ink-900/[0.06] bg-white px-5 pt-2 pb-6 lg:hidden">
         <ul className="grid gap-1">
-          {[...LINKS, ["Walrus Market", "/market"] as const, ["Sign in", "/signin"] as const].map(([label, href]) => (
+          {[...LINKS, ["Walrus Market", "/market"] as const, ["Sign in", "/market/signin"] as const].map(([label, href]) => (
             <li key={href}>
               <a href={href} onClick={() => setOpen(false)} className="flex h-12 items-center rounded-2xl px-3 text-lg font-semibold text-ink-900 hover:bg-ink-900/5">
                 {label}

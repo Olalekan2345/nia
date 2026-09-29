@@ -43,6 +43,12 @@ Nia: multi-merchant AI shopping & service assistant (web chat + Telegram) with d
 - Telegram section: `telegram-orbit-experience.tsx` — real CSS 3D (perspective + preserve-3d, so cards genuinely pass behind the phone). Data-driven `ORBIT` list (10 desktop / 8 tablet / 4 mobile by stage width), one clock that ticks only near the viewport, desktop-only pointer lean (±3°), slow turntable of the whole scene, still composition for reduced motion. Keep large tilted planes (e.g. orbit guide rings) OUT of the preserve-3d scene and keep cards opaque — browsers mis-sort/blend them against the phone. Product objects are feathered crops from the mascot art (`OBJECTS` in `scripts/landing-assets.ts` → `public/landing/orbit-*.webp`).
 - Examples are labelled "Example" / "Sample data"; the only live values are real links (the t.me bot via `botLink()`, GitHub docs).
 
+## Entry flow (2026-09-30)
+- Landing CTAs say **Sign in & shop with Nia** (header: **Shop with Nia**) → `/market/signin`; signed-in visitors go straight to `/market`.
+- Default post-sign-in destination is `/market` for email (`app/actions/auth.ts`), Telegram (`/api/auth/telegram`) and `/signin`. Explicit `next` still wins (onboarding, dashboard deep links); signing in inside a shop returns to that shop.
+- `/try` is retired (permanent redirect to `/market`). The market header shows **Your shops** (→ `/dashboard`) only to members of a shop.
+- Bot: the sign-in "Confirmed" message and the welcome keyboard carry an **Open Walrus Market** button (`marketUrl()`; stripped on localhost).
+
 ## Visual consistency (2026-09-29)
 The landing page is the source of truth. Its language now lives in shared tokens and primitives, so app pages inherit it:
 - Tokens (`globals.css` :root): paper background `#fbfbfe`, white surfaces, hairline `--border #e8e7f2` / `border-ink-900/[0.06]`, primary = landing CTA navy `#1b1a4b`, `--shadow-float` = the landing's soft navy shadow; app is light-only (`data-theme="light"`), like the landing. Contrast re-checked (`scripts/check-contrast.ts`, 0 failures).
@@ -56,7 +62,7 @@ Route checklist (inspected at 1440 and 390, restyled, functionally tested):
 |---|---|---|
 | `/` landing | ✅ source of truth | unchanged |
 | `/signin` | ✅ | display title, mascot aura, card + fields from primitives; e2e sign-in |
-| `/try` | ✅ | cards + title |
+| `/try` | ↪ retired | permanent redirect to `/market` (2026-09-30) |
 | `/onboarding` (all 6 steps) | ✅ | step pills, hero title, mascot aura; e2e onboarding → publish |
 | `/dashboard` workspace picker | ✅ | |
 | `/dashboard/[id]` overview | ✅ | stats, chart card, health, recent orders |

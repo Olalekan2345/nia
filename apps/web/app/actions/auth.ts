@@ -56,7 +56,7 @@ export async function signInAction(prev: SignInState, formData: FormData): Promi
       }
       destination = safeNext(formData.get("next"), `/s/${shopSlug}`);
     } else {
-      destination = safeNext(formData.get("next"), "/dashboard");
+      destination = safeNext(formData.get("next"), "/market");
     }
   } catch (err) {
     return { step: "code", email, devLogged: prev.step === "code" ? prev.devLogged : false, error: isAppError(err) ? err.message : "Couldn't verify the code." };

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Search, Sparkles, UserRound } from "lucide-react";
+import { Search, Sparkles, Store, UserRound } from "lucide-react";
 import { Mascot, buttonClasses } from "@nia/ui";
 import { CompareTray } from "@/components/market/compare-controls";
 import { getSessionUser } from "@/lib/auth";
+import { listUserMerchants } from "@/lib/access";
 
 export const metadata: Metadata = {
   title: { default: "Walrus Market", template: "%s · Walrus Market" },
@@ -12,6 +13,8 @@ export const metadata: Metadata = {
 
 export default async function MarketLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
+  // Sign-in lands everyone here; people who run a shop get a way back to their dashboard.
+  const ownsShop = user ? (await listUserMerchants(user.id)).some((w) => w.merchant.kind === "shop") : false;
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-30 border-b border-ink-900/[0.06] bg-surface/90 backdrop-blur-md">
@@ -40,6 +43,12 @@ export default async function MarketLayout({ children }: { children: React.React
             <Link href="/market/nia" className={buttonClasses({ size: "sm" })}>
               <Sparkles className="size-4" aria-hidden="true" /> Ask Nia
             </Link>
+            {ownsShop ? (
+              <Link href="/dashboard" className={buttonClasses({ variant: "ghost", size: "sm", className: "px-2.5 sm:px-4" })} aria-label="Your shops">
+                <Store className="size-4" aria-hidden="true" />
+                <span className="hidden sm:inline">Your shops</span>
+              </Link>
+            ) : null}
             {user ? (
               <Link href="/market/profile" className="grid size-10 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-ink-900/[0.05] hover:text-foreground" aria-label="Your market profile">
                 <UserRound className="size-5" aria-hidden="true" />

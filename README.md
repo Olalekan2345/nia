@@ -86,7 +86,7 @@ pnpm test:ai       # opt-in: runs real memory extraction with your model
 
 Or open `http://localhost:3210/market`, tap **Help me choose** and answer Nia’s questions — then open **Your market profile** to see each answer stored on Walrus.
 
-Then open `http://localhost:3210/try`, pick a demo shop (fabric, salon or bakery), sign in as a customer, and tell Nia “I normally buy Medium, I like darker colours, and I usually want delivery around Lekki.”
+Then open `http://localhost:3210`, tap **Sign in & shop with Nia** (you land in Walrus Market), open a demo shop (fabric, salon or bakery), and tell Nia “I normally buy Medium, I like darker colours, and I usually want delivery around Lekki.”
 
 Set `SEED_OWNER_EMAIL` before `pnpm db:seed` to own the demo stores (their dashboards and Judge Mode).
 

@@ -22,7 +22,7 @@ export function TelegramDemo({ telegramUrl }: { telegramUrl: string | null }) {
                 Open Nia on Telegram
               </Cta>
             ) : null}
-            <Cta href="/signin" variant="secondary">
+            <Cta href="/market/signin" variant="secondary">
               Sign in with Telegram
             </Cta>
           </div>
