@@ -1,13 +1,15 @@
 /**
  * Tools for Nia as the Walrus Market guide: search and compare across every
- * live shop, and ask the shopper one decision question at a time (shown as
- * tap-to-answer buttons). Read-only — buying happens in each shop.
+ * live shop, ask the shopper one decision question at a time (shown as
+ * tap-to-answer buttons), and propose baskets across shops. Buying still
+ * happens in each shop: the shopper adds items to that shop's cart.
  */
 import { tool } from "ai";
 import { z } from "zod";
-import { marketProducts, searchMarket, searchMarketServices, type MarketProduct, type MarketService } from "@nia/commerce";
+import { compareFacts, marketProducts, searchMarket, searchMarketServices, type MarketProduct, type MarketService } from "@nia/commerce";
 import { toMinorUnits } from "@nia/shared";
-import { createNiaTools, fail, toolGuard, type NiaToolScope } from "./tools";
+import { createAgentTools, rememberShown, sessionItem, specsText, whyReasons, type SearchConstraints } from "./agent-tools";
+import { createNiaTools, fail, searchExtras, toolGuard, type NiaToolScope } from "./tools";
 
 const productId = z.string().min(8).max(64).describe("Exact product id from a previous search result");
 
@@ -16,13 +18,16 @@ const productId = z.string().min(8).max(64).describe("Exact product id from a pr
  * search result is re-sent to the model in the next step, and rate-limited
  * providers cap tokens per request (Groq's free tier: 7,000 per minute).
  */
-function productView(p: MarketProduct) {
+function productView(p: MarketProduct, constraints: SearchConstraints = {}) {
   const matched = p.matchedVariantIds?.length ? p.variants.filter((v) => p.matchedVariantIds!.includes(v.id)).map((v) => v.name) : null;
+  const specs = specsText(p);
   return {
     id: p.id,
     name: p.name,
     category: p.category,
     about: p.description ? p.description.slice(0, 90) : null,
+    ...(specs ? { specs } : {}),
+    why: whyReasons(p, constraints, p.shop.locale),
     price: p.price,
     priceMax: p.priceMax,
     currency: p.currency,
@@ -34,6 +39,7 @@ function productView(p: MarketProduct) {
     ...(matched ? { matching: matched } : {}),
     shop: {
       name: p.shop.name,
+      slug: p.shop.slug,
       type: p.shop.businessLabel,
       city: p.shop.city,
       demo: p.shop.isDemo,
@@ -68,6 +74,8 @@ export function createMarketTools(scope: NiaToolScope) {
   const { db, merchant } = scope;
   const guard = toolGuard(merchant);
   const memory = createNiaTools(scope);
+  // Memory card, cross-shop basket planner, shortlist and shopping list.
+  const agent = createAgentTools(scope);
   // Tools are built per turn, so this counts searches within one reply.
   const searches = new Set<string>();
   const searchBudget = (kind: string, input: object) => {
@@ -81,7 +89,7 @@ export function createMarketTools(scope: NiaToolScope) {
   return {
     searchMarket: tool({
       description:
-        "Search products across every shop in Walrus Market. Use for any product request or recommendation. Budget is in major units of the currency (e.g. naira).",
+        "Search products across every shop in Walrus Market. Use for any product request or recommendation. Budget is in major units of the currency (e.g. naira). Results include real specs and short 'why' reasons.",
       inputSchema: z.object({
         query: z.string().max(200).optional().describe("Keywords, e.g. 'ankara', 'birthday cake', 'hair serum'"),
         category: z.string().max(80).optional(),
@@ -91,6 +99,7 @@ export function createMarketTools(scope: NiaToolScope) {
         inStockOnly: z.boolean().optional(),
         shop: z.string().max(64).optional().describe("Limit to one shop (its slug)"),
         limit: z.number().int().min(1).max(6).optional(),
+        ...searchExtras,
       }),
       execute: (input) =>
         guard(async () => {
@@ -100,13 +109,28 @@ export function createMarketTools(scope: NiaToolScope) {
             query: input.query,
             category: input.category,
             maxPrice: input.maxBudget != null ? toMinorUnits(input.maxBudget, merchant.currency) : undefined,
+            minPrice: input.minBudget != null ? toMinorUnits(input.minBudget, merchant.currency) : undefined,
             colour: input.colour,
             size: input.size,
             inStockOnly: input.inStockOnly,
+            exclude: input.exclude,
+            prefer: input.prefer,
             shops: input.shop ? [input.shop] : undefined,
             limit: input.limit ?? 4,
           });
-          return { ok: true as const, count: products.length, products: products.map(productView) };
+          await rememberShown(scope, products.map((p) => sessionItem(p, merchant.locale)), {
+            query: input.query,
+            category: input.category,
+            budgetMax: input.maxBudget,
+            budgetMin: input.minBudget,
+            colour: input.colour,
+            size: input.size,
+            excluded: input.exclude,
+            preferred: input.prefer,
+            recipient: input.forWhom,
+            occasion: input.occasion,
+          });
+          return { ok: true as const, count: products.length, products: products.map((p) => productView(p, input)) };
         }),
     }),
 
@@ -131,13 +155,15 @@ export function createMarketTools(scope: NiaToolScope) {
     }),
 
     compareProducts: tool({
-      description: "Compare 2–4 products side by side (price, options, stock, shop, delivery) when the shopper is deciding between them. Use exact product ids from search results.",
-      inputSchema: z.object({ productIds: z.array(productId).min(2).max(4) }),
-      execute: ({ productIds }) =>
+      description:
+        "Compare 2–4 products side by side from their real specs, options, price, stock, shop and delivery when the shopper is deciding. Use exact product ids (from results or <nia_session>). Optional focus limits to specs they care about ('battery', 'weight'). Specs not listed are not listed — never guess them.",
+      inputSchema: z.object({ productIds: z.array(productId).min(2).max(4), focus: z.array(z.string().max(30)).max(6).optional() }),
+      execute: ({ productIds, focus }) =>
         guard(async () => {
           const products = await marketProducts(db, productIds);
           if (products.length < 2) return fail("I need at least two of those products to compare — search again and use their exact ids.", "NOT_FOUND");
-          return { ok: true as const, products: products.map(productView) };
+          await rememberShown(scope, products.map((p) => sessionItem(p, merchant.locale)));
+          return { ok: true as const, products: products.map((p) => productView(p)), ...compareFacts(products, focus) };
         }),
     }),
 
@@ -152,6 +178,10 @@ export function createMarketTools(scope: NiaToolScope) {
       execute: async ({ question, options, topic }) => ({ ok: true as const, question, options, ...(topic ? { topic } : {}) }),
     }),
 
+    planBasket: agent.planBasket,
+    showMyMemory: agent.showMyMemory,
+    saveForLater: agent.saveForLater,
+    updateShoppingList: agent.updateShoppingList,
     recallCustomerMemory: memory.recallCustomerMemory,
     forgetCustomerMemory: memory.forgetCustomerMemory,
   };

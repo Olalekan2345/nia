@@ -7,3 +7,4 @@ export * from "./recall-query";
 export * from "./service";
 export * from "./history";
 export * from "./health";
+export * from "./profile";

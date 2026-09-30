@@ -15,6 +15,7 @@ import { getDraft, marketShopsWithCategories, orderSummary, type OrderSummaryDat
 import {
   buildRecallQueries,
   isForgetRequest,
+  isMemoryQuestion,
   processCandidates,
   recallCustomerMemory,
   recallMerchantMemory,
@@ -28,6 +29,8 @@ import { redactSensitive, type Channel, type MemoryScope } from "@nia/shared";
 import { buildMarketSystemPrompt, buildSystemPrompt, formatCart, formatKnowledge, formatRecalledMemories } from "./prompts";
 import { createNiaTools, type NiaToolScope, type NiaTools } from "./tools";
 import { createMarketTools, type MarketTools } from "./market-tools";
+import { COMPARE_TALK, LIST_TALK, PLAN_TALK, SAVE_TALK } from "./agent-tools";
+import { CONTINUE_TALK, formatSession, previousSession, sessionHandle } from "./session";
 import { extractMemories } from "./extraction";
 import { decisionAnswer, splitAskedQuestion, type AskedDecision } from "./decisions";
 import { callSettings, getExtractionModel } from "./provider";
@@ -61,6 +64,8 @@ export interface PreparedTurn {
   activeTools: string[];
   /** Provider-specific retry budget (e.g. Groq rate limits). */
   maxRetries: number;
+  /** Output cap per model step (Groq rejects requests whose expected output exceeds its per-minute cap). */
+  maxOutputTokens?: number;
 }
 
 export function effectiveMemoryMode(ctx: Pick<TurnContext, "merchant" | "customer" | "conversation" | "store">): {
@@ -103,8 +108,22 @@ export function selectTools(o: {
   bookingContext: boolean;
   /** A cart exists or the customer is talking about buying/delivery. */
   orderContext: boolean;
+  /** "What do you remember about me?" and similar. */
+  memoryQuestion?: boolean;
+  /** A multi-part goal (event, outfit, set-up, list) or a basket to adjust. */
+  planContext?: boolean;
+  /** "Compare these", "which is better". */
+  compareContext?: boolean;
+  /** "Save these", "add milk to my list". */
+  saveContext?: boolean;
+  listContext?: boolean;
 }): (keyof NiaTools)[] {
   const tools: (keyof NiaTools)[] = ["searchProducts", "getProduct", "getMerchantPolicy"];
+  if (o.compareContext) tools.push("compareProducts");
+  if (o.planContext) tools.push("planBasket");
+  if (o.saveContext) tools.push("saveForLater");
+  if (o.listContext) tools.push("updateShoppingList");
+  if (o.memoryQuestion && o.signedIn && o.memoryOn) tools.push("showMyMemory");
   // Recall already ran for this turn. The search tools are only offered when it
   // found nothing, keeping relayer calls inside the delegate key's rate limit.
   if (o.merchantHasMemory && !o.recalledMerchant) tools.push("recallMerchantMemory");
@@ -135,9 +154,23 @@ export function answerOnLastStep({ stepNumber }: { stepNumber: number }): { tool
 }
 
 /** Walrus Market guide: always search/compare/ask; memory tools only when they can help. */
-export function selectMarketTools(o: { memoryOn: boolean; customerHasMemory: boolean; recalledCustomer: boolean; forgetRequested: boolean }): (keyof MarketTools)[] {
+export function selectMarketTools(o: {
+  memoryOn: boolean;
+  customerHasMemory: boolean;
+  recalledCustomer: boolean;
+  forgetRequested: boolean;
+  signedIn?: boolean;
+  memoryQuestion?: boolean;
+  planContext?: boolean;
+  saveContext?: boolean;
+  listContext?: boolean;
+}): (keyof MarketTools)[] {
   const tools: (keyof MarketTools)[] = ["searchMarket", "searchMarketServices", "compareProducts", "askDecision"];
-  if (o.memoryOn && o.customerHasMemory && !o.recalledCustomer) tools.push("recallCustomerMemory");
+  if (o.planContext) tools.push("planBasket");
+  if (o.saveContext) tools.push("saveForLater");
+  if (o.listContext) tools.push("updateShoppingList");
+  if (o.memoryQuestion && o.signedIn && o.memoryOn) tools.push("showMyMemory");
+  else if (o.memoryOn && o.customerHasMemory && !o.recalledCustomer) tools.push("recallCustomerMemory");
   if (o.memoryOn && o.recalledCustomer && o.forgetRequested) tools.push("forgetCustomerMemory");
   return tools;
 }
@@ -212,6 +245,27 @@ export async function prepareTurn(ctx: TurnContext, rawUserText: string, opts: {
   ]);
   const recentTalk = userTurns.slice(-3).join(" ");
 
+  // Shopping session: this conversation's goal, results shown, shortlist, list and basket.
+  const session = sessionHandle(db, conversation.id, conversation.session);
+  const s = session.current;
+  // Picking up earlier shopping ("let's continue", "those laptops again") from another conversation —
+  // only when asked, so Nia doesn't resurrect abandoned shopping unprompted.
+  const earlier =
+    customer && mode === "on" && CONTINUE_TALK.test(userText) && !s.shortlist?.length && !s.basket
+      ? await previousSession(db, { merchantId: merchant.id, customerId: customer.id, excludeConversationId: conversation.id }).catch(() => null)
+      : null;
+  const sessionText = [
+    formatSession(s),
+    earlier ? formatSession(earlier.session, { label: new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: merchant.timezone }).format(earlier.lastMessageAt) }) : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+  if (earlier?.session.shortlist?.length && !s.lastResults?.length) {
+    // Let "show me those again" / "compare those" resolve against the earlier shortlist.
+    await session.update((cur) => ({ ...cur, lastResults: earlier.session.shortlist }));
+  }
+  const memoryNote = recallError ? "<nia_memory_status>Memory is temporarily unavailable this turn — say so if the customer asks what you remember; never guess their history.</nia_memory_status>" : "";
+
   const scope: NiaToolScope = {
     db,
     store,
@@ -223,6 +277,14 @@ export async function prepareTurn(ctx: TurnContext, rawUserText: string, opts: {
     memoryMode: mode,
     recalled: { customer: customerMemories, merchant: merchantMemories },
     flags: { memoryAssisted: false, forgotten: [] },
+    session,
+  };
+  const gates = {
+    memoryQuestion: isMemoryQuestion(userText),
+    planContext: PLAN_TALK.test(userText) || Boolean(s.basket && PLAN_TALK.test(recentTalk)) || Boolean(s.list?.length && /\b(?:get|buy|order) (?:everything|it all|them)\b/i.test(userText)),
+    compareContext: COMPARE_TALK.test(userText),
+    saveContext: SAVE_TALK.test(userText),
+    listContext: LIST_TALK.test(userText),
   };
 
   const customerView = customer ? { signedIn: true, name: customer.displayName, memoryEnabled: customer.memoryEnabled } : null;
@@ -236,6 +298,8 @@ export async function prepareTurn(ctx: TurnContext, rawUserText: string, opts: {
           shops: shops.map((sh) => ({ name: sh.name, slug: sh.slug, type: sh.businessLabel, city: sh.city, demo: sh.isDemo, categories: sh.categories })),
         }),
         mode === "on" ? formatRecalledMemories(customerMemories, [], merchant.timezone) : "",
+        memoryNote,
+        sessionText,
       ]
         .filter(Boolean)
         .join("\n\n")
@@ -251,6 +315,8 @@ export async function prepareTurn(ctx: TurnContext, rawUserText: string, opts: {
     formatKnowledge(knowledge),
     customer ? formatCart(cart, merchant.locale) : "",
     mode === "on" ? formatRecalledMemories(customerMemories, merchantMemories, merchant.timezone) : formatRecalledMemories([], merchantMemories, merchant.timezone),
+    memoryNote,
+    sessionText,
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -265,7 +331,14 @@ export async function prepareTurn(ctx: TurnContext, rawUserText: string, opts: {
     messages,
     tools: isMarket ? createMarketTools(scope) : createNiaTools(scope),
     activeTools: isMarket
-      ? selectMarketTools({ memoryOn: mode === "on", customerHasMemory, recalledCustomer: customerMemories.length > 0, forgetRequested: isForgetRequest(userText) })
+      ? selectMarketTools({
+          memoryOn: mode === "on",
+          customerHasMemory,
+          recalledCustomer: customerMemories.length > 0,
+          forgetRequested: isForgetRequest(userText),
+          signedIn: Boolean(customer),
+          ...gates,
+        })
       : selectTools({
       signedIn: Boolean(customer),
       memoryOn: mode === "on",
@@ -277,8 +350,10 @@ export async function prepareTurn(ctx: TurnContext, rawUserText: string, opts: {
       forgetRequested: isForgetRequest(userText),
       bookingContext: !hasProducts || BOOKING_TALK.test(recentTalk),
       orderContext: Boolean(cart) || ORDER_TALK.test(recentTalk),
+      ...gates,
     }),
     maxRetries: callSettings("chat").maxRetries,
+    maxOutputTokens: callSettings("chat").maxOutputTokens,
     scope,
     userText,
     history: prior,

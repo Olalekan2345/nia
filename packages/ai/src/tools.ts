@@ -8,11 +8,13 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { and, eq } from "drizzle-orm";
-import { merchantKnowledge, type Db, type Merchant } from "@nia/database";
+import { merchantKnowledge } from "@nia/database";
 import {
   addItemToDraft,
+  compareFacts,
   createBookingDraft,
   getAvailableBookingSlots,
+  getCustomerBookings,
   getCustomerOrder,
   getCustomerRecentOrders,
   getDraft,
@@ -20,72 +22,31 @@ import {
   getProduct,
   getService,
   orderSummary,
+  productPriceHistoryFor,
   removeDraftItem,
   reorderToDraft,
+  resolveRepeatBooking,
   resolveRepeatOrder,
   searchProducts,
   searchServices,
   setDraftFulfillment,
   updateDraftItem,
 } from "@nia/commerce";
-import { forgetMemory, forgetRecalledBlob, recallCustomerMemory, recallMerchantMemory, type MemoryStore, type RecalledMemory } from "@nia/memory";
-import { formatMoney, isAppError, toMinorUnits, type Channel } from "@nia/shared";
+import { forgetMemory, forgetRecalledBlob, recallCustomerMemory, recallMerchantMemory } from "@nia/memory";
+import { isAppError, toMinorUnits } from "@nia/shared";
+import { alternativesFor, createAgentTools, rememberShown, sessionItem, specsText, whyReasons } from "./agent-tools";
+import { fail, toolGuard, type NiaToolScope } from "./tool-kit";
 
-export interface NiaToolScope {
-  db: Db;
-  store: MemoryStore | null;
-  merchant: Merchant;
-  customerId: string | null;
-  customerMemoryEnabled: boolean;
-  channel: Channel;
-  conversationId: string;
-  memoryMode: "on" | "off";
-  /** Memories shown to the model this turn (refs M1.., B1..). Tools may append. */
-  recalled: { customer: RecalledMemory[]; merchant: RecalledMemory[] };
-  /** Side-channel flags for the orchestrator. */
-  flags: { memoryAssisted: boolean; forgotten: string[] };
-}
+export { fail, toolGuard, withMoneyLabels, type NiaToolScope } from "./tool-kit";
 
-type Fail = { ok: false; error: string; code?: "SIGN_IN_REQUIRED" | "MEMORY_OFF" | "NOT_FOUND" | "INVALID" };
-
-export function fail(error: string, code?: Fail["code"]): Fail {
-  return { ok: false, error, ...(code ? { code } : {}) };
-}
-
-const MONEY_FIELDS = new Set(["price", "priceMin", "priceMax", "unitPrice", "lineTotal", "deliveryFee", "subtotal", "total", "depositAmount"]);
-
-/**
- * Amounts in tool results are minor units (kobo, cents) — exact, for the UI cards.
- * A model reads `price: 750000` as ₦750,000, so every amount also gets a formatted
- * `…Label` ("₦7,500") and the prompt says to quote only those.
- */
-export function withMoneyLabels<T>(value: T, locale: string, currency?: string): T {
-  if (Array.isArray(value)) return value.map((v) => withMoneyLabels(v, locale, currency)) as T;
-  if (!value || typeof value !== "object" || value instanceof Date) return value;
-  const obj = value as Record<string, unknown>;
-  const cur = typeof obj.currency === "string" ? obj.currency : currency;
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(obj)) {
-    out[k] = withMoneyLabels(v, locale, cur);
-    if (cur && MONEY_FIELDS.has(k) && typeof v === "number") out[`${k}Label`] = formatMoney(v, cur, { locale });
-  }
-  return out as T;
-}
-
-/** Every tool result: errors become typed failures, amounts get human-readable labels. */
-export function toolGuard(merchant: Pick<Merchant, "locale" | "currency">) {
-  return <T,>(fn: () => Promise<T>) => guardRaw(async () => withMoneyLabels(await fn(), merchant.locale, merchant.currency));
-}
-
-async function guardRaw<T>(fn: () => Promise<T>): Promise<T | Fail> {
-  try {
-    return await fn();
-  } catch (err) {
-    if (isAppError(err)) return fail(err.message, err.code === "NOT_FOUND" ? "NOT_FOUND" : "INVALID");
-    console.error("[nia tool] unexpected error", err);
-    return fail("Something went wrong on our side. Please try again.");
-  }
-}
+/** Optional search constraints shared by the shop and market search tools. */
+export const searchExtras = {
+  minBudget: z.number().positive().optional().describe("Minimum price per unit, major units"),
+  exclude: z.array(z.string().min(2).max(30)).max(6).optional().describe("Hard: never show items described by these words ('red', 'dairy')"),
+  prefer: z.array(z.string().min(2).max(30)).max(6).optional().describe("Soft: rank these higher ('lightweight', 'darker')"),
+  forWhom: z.string().max(40).optional().describe("Who it's for, this purchase only ('my brother')"),
+  occasion: z.string().max(40).optional(),
+};
 
 const SIGN_IN = fail("The customer needs to sign in to use their cart, orders or bookings.", "SIGN_IN_REQUIRED");
 
@@ -101,6 +62,9 @@ export function createNiaTools(scope: NiaToolScope) {
   const needCustomer = () => scope.customerId;
 
   return {
+    // Memory card, basket planner (this shop only), shortlist and shopping list.
+    ...createAgentTools(scope, { shops: [merchant.slug] }),
+
     searchProducts: tool({
       description:
         "Search this shop's product catalog (products, custom orders, packages). Use for any product question or recommendation. Budget is in major units of the shop currency.",
@@ -112,30 +76,70 @@ export function createNiaTools(scope: NiaToolScope) {
         size: z.string().max(20).optional().describe("Size option, e.g. 'M', 'XL', '500 ml'"),
         inStockOnly: z.boolean().optional(),
         limit: z.number().int().min(1).max(8).optional(),
+        ...searchExtras,
       }),
       execute: async (input) =>
         guard(async () => {
-          const products = await searchProducts(db, m, {
+          const found = await searchProducts(db, m, {
             query: input.query,
             category: input.category,
             maxPrice: input.maxBudget != null ? toMinorUnits(input.maxBudget, merchant.currency) : undefined,
+            minPrice: input.minBudget != null ? toMinorUnits(input.minBudget, merchant.currency) : undefined,
             colour: input.colour,
             size: input.size,
             inStockOnly: input.inStockOnly,
+            exclude: input.exclude,
+            prefer: input.prefer,
             limit: input.limit ?? 4,
+          });
+          const products = found.map((p) => ({ ...p, why: whyReasons(p, input, merchant.locale), specs: specsText(p) }));
+          await rememberShown(scope, products.map((p) => sessionItem(p, merchant.locale)), {
+            query: input.query,
+            category: input.category,
+            budgetMax: input.maxBudget,
+            budgetMin: input.minBudget,
+            colour: input.colour,
+            size: input.size,
+            excluded: input.exclude,
+            preferred: input.prefer,
+            recipient: input.forWhom,
+            occasion: input.occasion,
           });
           return { ok: true as const, count: products.length, products };
         }),
     }),
 
     getProduct: tool({
-      description: "Get one product with all its variants, prices and availability.",
+      description: "Get one product with all its variants, prices, availability, recorded price changes, and alternatives when it's unavailable.",
       inputSchema: z.object({ productId: id }),
       execute: async ({ productId }) =>
         guard(async () => {
           if (badId(productId)) return fail("Unknown product id — search the catalog first.", "INVALID");
           const product = await getProduct(db, m, productId);
-          return product ? { ok: true as const, product } : fail("Product not found in this shop", "NOT_FOUND");
+          if (!product) return fail("Product not found in this shop", "NOT_FOUND");
+          const [history, alternatives] = await Promise.all([
+            productPriceHistoryFor(db, { merchantId: m, productId: product.id }),
+            product.available ? Promise.resolve([]) : alternativesFor(scope, [m], product.id, null),
+          ]);
+          return {
+            ok: true as const,
+            product,
+            // Only recorded changes: with none, never claim a discount or a previous price.
+            priceHistory: { trackedSince: history.trackedSince, changes: history.changes.slice(-5) },
+            ...(alternatives.length ? { alternatives } : {}),
+          };
+        }),
+    }),
+
+    compareProducts: tool({
+      description: "Compare 2–4 of this shop's products side by side from their real specs, options, prices and stock. Optional focus limits to specs the customer cares about ('battery', 'weight').",
+      inputSchema: z.object({ productIds: z.array(id).min(2).max(4), focus: z.array(z.string().max(30)).max(6).optional() }),
+      execute: async ({ productIds, focus }) =>
+        guard(async () => {
+          if (badId(...productIds)) return fail("Use exact product ids from search results.", "INVALID");
+          const list = (await Promise.all(productIds.map((pid) => getProduct(db, m, pid)))).filter((p): p is NonNullable<typeof p> => Boolean(p));
+          if (list.length < 2) return fail("I need at least two of this shop's products to compare.", "NOT_FOUND");
+          return { ok: true as const, products: list, ...compareFacts(list, focus) };
         }),
     }),
 
@@ -167,15 +171,28 @@ export function createNiaTools(scope: NiaToolScope) {
     }),
 
     getCustomerRecentOrders: tool({
-      description: "The signed-in customer's recent orders at this shop (operational truth). Use for 'same as last time', 'my usual', order status.",
+      description:
+        "The signed-in customer's recent orders AND bookings at this shop (operational truth). Use for 'same as last time', 'my usual', 'book the same haircut', order status. 'repeat' / 'repeatBooking' say whether history is clear or ambiguous.",
       inputSchema: z.object({ limit: z.number().int().min(1).max(10).optional() }),
       execute: async ({ limit }) =>
         guard(async () => {
           const customerId = needCustomer();
           if (!customerId) return SIGN_IN;
           if (scope.memoryMode === "off") return fail("Customer history is unavailable in memory-off mode.", "MEMORY_OFF");
-          const orders = await getCustomerRecentOrders(db, m, customerId, limit ?? 5);
-          return { ok: true as const, count: orders.length, orders, repeat: resolveRepeatOrder(orders) };
+          const [orders, bookings] = await Promise.all([getCustomerRecentOrders(db, m, customerId, limit ?? 5), getCustomerBookings(db, m, customerId, 5)]);
+          const past = bookings.filter((b) => b.status !== "draft");
+          return {
+            ok: true as const,
+            count: orders.length,
+            orders,
+            repeat: resolveRepeatOrder(orders),
+            ...(past.length
+              ? {
+                  bookings: past.map((b) => ({ id: b.id, service: b.serviceName, serviceId: b.serviceId, options: b.selectedOptions, startAt: b.startAt, status: b.status })),
+                  repeatBooking: resolveRepeatBooking(past),
+                }
+              : {}),
+          };
         }),
     }),
 
@@ -204,7 +221,13 @@ export function createNiaTools(scope: NiaToolScope) {
             if (scope.memoryMode === "off") return fail("Customer history is unavailable in memory-off mode.", "MEMORY_OFF");
             const result = await reorderToDraft(db, { merchantId: m, customerId, orderId: fromOrderId, channel: scope.channel, conversationId: scope.conversationId });
             scope.flags.memoryAssisted = true;
-            return { ok: true as const, cart: result.summary, added: result.added, unavailable: result.unavailable };
+            // For anything no longer available: real alternatives, never a silent swap.
+            const alternatives = (
+              await Promise.all(
+                result.unavailableItems.filter((u) => u.productId).map(async (u) => ({ for: u.name, quantity: u.quantity, options: await alternativesFor(scope, [m], u.productId!, u.variantId) })),
+              )
+            ).filter((a) => a.options.length);
+            return { ok: true as const, cart: result.summary, added: result.added, unavailable: result.unavailable, ...(alternatives.length ? { alternatives } : {}) };
           }
           const draft = await getOrCreateDraft(db, { merchantId: m, customerId, channel: scope.channel, conversationId: scope.conversationId });
           return { ok: true as const, cart: await orderSummary(db, m, draft.id) };
@@ -226,18 +249,25 @@ export function createNiaTools(scope: NiaToolScope) {
           const customerId = needCustomer();
           if (!customerId) return SIGN_IN;
           if (input.basedOnMemory && scope.memoryMode === "on") scope.flags.memoryAssisted = true;
-          const cart = await addItemToDraft(db, {
-            merchantId: m,
-            customerId,
-            productId: input.productId,
-            variantId: input.variantId ?? null,
-            quantity: input.quantity,
-            notes: input.notes ?? null,
-            channel: scope.channel,
-            conversationId: scope.conversationId,
-            memoryAssisted: scope.flags.memoryAssisted,
-          });
-          return { ok: true as const, cart };
+          try {
+            const cart = await addItemToDraft(db, {
+              merchantId: m,
+              customerId,
+              productId: input.productId,
+              variantId: input.variantId ?? null,
+              quantity: input.quantity,
+              notes: input.notes ?? null,
+              channel: scope.channel,
+              conversationId: scope.conversationId,
+              memoryAssisted: scope.flags.memoryAssisted,
+            });
+            return { ok: true as const, cart };
+          } catch (err) {
+            // Out of stock / not enough: say so, with real alternatives instead of a dead end.
+            if (!isAppError(err) || err.code !== "CONFLICT") throw err;
+            const alternatives = await alternativesFor(scope, [m], input.productId, input.variantId);
+            return { ...fail(err.message), ...(alternatives.length ? { alternatives } : {}) };
+          }
         }),
     }),
 

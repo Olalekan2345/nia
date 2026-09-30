@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
-import { applyDemoTemplate, messages, orders, productVariants, products, sessions, telegramIdentities, type Database, type Merchant } from "@nia/database";
+import { applyDemoTemplate, merchants, messages, orders, productVariants, products, sessions, telegramIdentities, type Database, type Merchant } from "@nia/database";
 import { setupTestDb, createMerchant, createUser } from "@nia/database/testing";
 import { resetEnvCache } from "@nia/config";
 import type { MemoryStore } from "@nia/memory";
@@ -263,5 +263,80 @@ describe("Continue with Telegram", () => {
     sent = [];
     await processUpdate(deps(), textUpdate(6005, "/logout"));
     expect(texts()[0]).toMatch(/isn't connected/);
+  });
+});
+
+describe("Walrus Market on Telegram", () => {
+  let market: Merchant;
+  const juiceShop = { slug: "walrus-drinks-tg" };
+  const cakeShop = { slug: "crumb-tg" };
+
+  beforeAll(async () => {
+    market = await createMerchant(db, { name: "Walrus Market", slug: "market-tg", kind: "market", businessType: "other", telegramEnabled: false });
+    const drinks = await createMerchant(db, { name: "Walrus Drinks", slug: juiceShop.slug, businessType: "drinks", isDemo: true });
+    await applyDemoTemplate(db, drinks.id, "drinks");
+    const bakery = await createMerchant(db, { name: "Crumb & Co.", slug: cakeShop.slug, businessType: "bakery", isDemo: true });
+    await applyDemoTemplate(db, bakery.id, "bakery");
+  });
+
+  it("offers the market in the chooser and shops across every shop, with links to each shop", async () => {
+    await processUpdate(deps(), textUpdate(7101, "hi"));
+    expect(JSON.stringify(sent.find((x) => String(x.args[1]).includes("Which shop"))!.args[2])).toContain("Walrus Market");
+    sent = [];
+    await processUpdate(deps(), callbackUpdate(7101, `s:${market.slug}`));
+    expect(texts()[0]).toMatch(/Walrus Market shopping guide/);
+    sent = [];
+    setModelOverrides({ chat: scriptedModel([{ toolCalls: [{ name: "searchMarket", input: { query: "orange juice" } }] }, { text: "Here's the orange juice." }]) });
+    await processUpdate(deps(), textUpdate(7101, "orange juice please"));
+    const card = sent.find((s) => (s.method === "sendMessage" || s.method === "sendPhoto") && JSON.stringify(s.args).includes("100% Orange Juice"));
+    expect(card).toBeTruthy();
+    expect(JSON.stringify(card!.args)).toContain(`https://nia.example/s/${juiceShop.slug}/shop/orange-juice`);
+  });
+
+  it("turns a tapped decision option into the shopper's answer", async () => {
+    setModelOverrides({ chat: scriptedModel([{ toolCalls: [{ name: "askDecision", input: { question: "Who is it for?", options: ["My mum", "A friend"], topic: "Recipient" } }] }, { text: "Happy to help!" }]) });
+    await processUpdate(deps(), textUpdate(7102, `/start s_${market.slug}`));
+    sent = [];
+    await processUpdate(deps(), textUpdate(7102, "I need a gift"));
+    expect(JSON.stringify(sent.map((s) => s.args))).toContain('"callback_data":"ad:0"');
+    sent = [];
+    setModelOverrides({ chat: scriptedModel([{ text: "Lovely — for your mum." }]) });
+    await processUpdate(deps(), callbackUpdate(7102, "ad:0"));
+    const [identity] = await db.select().from(telegramIdentities).where(eq(telegramIdentities.telegramUserId, 7102));
+    const saved = await db.select().from(messages).where(and(eq(messages.conversationId, identity!.activeConversationId!), eq(messages.role, "user")));
+    expect(saved.map((m) => m.content)).toContain("My mum");
+  });
+
+  it("adds a proposed basket to each shop's cart, then confirmation happens in that shop", async () => {
+    setModelOverrides({
+      chat: scriptedModel([
+        { toolCalls: [{ name: "planBasket", input: { goal: "Movie night", budget: 60_000, slots: [{ label: "Drinks", query: "juice", quantity: 2 }, { label: "Cake", query: "cake", quantity: 1 }] } }] },
+        { text: "Here's a basket for movie night." },
+      ]),
+    });
+    await processUpdate(deps(), textUpdate(7103, `/start s_${market.slug}`));
+    sent = [];
+    await processUpdate(deps(), textUpdate(7103, "Movie night for 4 under ₦60,000 — drinks and a cake"));
+    const basket = sent.find((s) => String(s.args[1]).includes("Movie night") && JSON.stringify(s.args).includes('"callback_data":"pb"'));
+    expect(basket).toBeTruthy();
+    expect(String(basket!.args[1])).toMatch(/Total: ₦/);
+
+    sent = [];
+    await processUpdate(deps(), callbackUpdate(7103, "pb"));
+    expect(texts().join("\n")).toMatch(/Added to your carts/);
+    const kb = JSON.stringify(sent.map((s) => s.args));
+    expect(kb).toContain(`cs:${juiceShop.slug}`);
+    expect(kb).toContain(`cs:${cakeShop.slug}`);
+    // Nothing was ordered: each shop holds a draft cart for this Telegram customer.
+    for (const slug of [juiceShop.slug, cakeShop.slug]) {
+      const [m] = await db.select().from(merchants).where(eq(merchants.slug, slug));
+      const customer = await resolveTelegramCustomer(db, m!.id, { telegramUserId: 7103, displayName: "Amara", username: "amara7103" });
+      const carts = await db.select().from(orders).where(and(eq(orders.merchantId, m!.id), eq(orders.customerId, customer.id)));
+      expect(carts.map((o) => o.status)).toEqual(["draft"]);
+    }
+
+    sent = [];
+    await processUpdate(deps(), callbackUpdate(7103, `cs:${cakeShop.slug}`));
+    expect(texts()[0]).toMatch(/Your cart · Crumb &amp; Co\./);
   });
 });

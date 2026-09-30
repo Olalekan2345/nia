@@ -76,3 +76,19 @@ Up to 6 customer memories + 3 shop memories per turn, chosen by semantic similar
 ## Forget & correct
 
 Customers can say “don’t remember that” (the model calls `forgetCustomerMemory` with the recalled reference) or use the Passport. Forgetting is logical — see [WALRUS.md](WALRUS.md#forgetting). Customers can also switch memory off entirely for a shop; merchants can switch it off for their store.
+
+## Session state vs long-term memory
+
+A conversation also has a **shopping session** (`conversations.session`): the current goal and constraints, the results Nia showed, the shortlist, a list and a proposed basket. It is operational context for *this* conversation, kept in PostgreSQL and never written to Walrus. “I'm shopping for my brother today”, “not red today” and a basket for tonight's party live there. Durable facts (“I don't like red”, “I wear Large now”, “my sister loves minimalist jewellery”) reach Walrus only through extraction and the policy above. When a customer asks to continue earlier shopping, the previous conversation's session (last 14 days) is offered to the model; it is never resurrected unprompted.
+
+## “What do you remember about me?”
+
+`showMyMemory` groups the customer's **current, Walrus-stored** memories (Sizes & options, Colours & style, Brands, Delivery, Budget, People & occasions, Looking for, Service history, Likes & dislikes) with how sure Nia is:
+
+| Shown as | From confirmation |
+|---|---|
+| Confirmed | `customer_stated`, `customer_confirmed`, `customer_corrected` |
+| Observed | `observed_from_orders` |
+| Likely | `inferred` (only stored after the customer agreed) |
+
+Corrections show what they replaced (“updated · was Lekki”); forgotten, superseded, pending and tombstoned records are never listed as current. The card's labels are UI text; the model answers from the same memories recalled from Walrus in that turn (`packages/memory/src/profile.ts`).

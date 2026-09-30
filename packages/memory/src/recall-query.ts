@@ -22,7 +22,7 @@ export function isRepeatIntent(text: string): boolean {
 }
 
 const MEMORY_QUESTION =
-  /\b(?:what do (?:i|you) (?:normally|usually|remember)|do you remember|what (?:do you know|have i told you)|my (?:usual|normal|preferences?|size)|where do you (?:usually|normally) (?:deliver|send)|usual(?:ly)? deliver|what size do i)\b/i;
+  /\b(?:what do (?:i|you) (?:normally|usually|remember)|do you remember|what (?:do you know|have i told you|have you (?:saved|stored|kept))|(?:know|remember) about me|my (?:usual|normal|preferences?|size|shopping preferences|memory|profile)|where do (?:you|i) (?:usually|normally) (?:deliver|send)|usual(?:ly)? deliver|what size do i|what (?:brands?|colou?rs?|styles?) do i (?:like|prefer|usually|normally))\b/i;
 
 export function isMemoryQuestion(text: string): boolean {
   return MEMORY_QUESTION.test(text);

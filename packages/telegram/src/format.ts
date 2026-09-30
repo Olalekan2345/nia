@@ -35,8 +35,14 @@ export const CB = {
   repeat: (orderId: string) => `rp:${orderId}`,
   consentYes: (candidateId: string) => `my:${candidateId}`,
   consentNo: (candidateId: string) => `mn:${candidateId}`,
-  action: (name: "browse" | "book" | "last" | "link" | "memory" | "change_qty" | "similar") => `a:${name}`,
+  action: (name: "browse" | "book" | "last" | "link" | "memory" | "change_qty" | "similar" | "cheaper") => `a:${name}`,
   shop: (slug: string) => `s:${slug.slice(0, 60)}`,
+  /** Tap the i-th option of Nia's last decision question. */
+  decision: (i: number) => `ad:${i}`,
+  /** Add the proposed basket to each shop's cart. */
+  basket: () => "pb",
+  /** Switch to a shop and review its cart. */
+  reviewCart: (slug: string) => `cs:${slug.slice(0, 60)}`,
   loginPick: (requestId: string, n: number) => `gl:${requestId}:${n}`,
   loginDeny: (requestId: string) => `gx:${requestId}`,
   signOutEverywhere: () => "so",
@@ -63,7 +69,25 @@ export function marketUrl(appUrl: string): string {
   return `${appUrl}/market`;
 }
 
+/** The customer's memory page on the web: a shop's Memory Passport, or the market profile. */
+export function profileUrl(appUrl: string, merchant: Pick<Merchant, "slug" | "kind">): string {
+  return merchant.kind === "market" ? `${appUrl}/market/profile` : storefrontUrl(appUrl, merchant, "/profile");
+}
+
 export function welcomeText(merchant: Merchant, linked: boolean): string {
+  if (merchant.kind === "market") {
+    return [
+      "👋 <b>Hi, I'm Nia</b> — your Walrus Market shopping guide, across every shop.",
+      "",
+      "I can help you:",
+      "• find and compare products and services in every shop",
+      "• build a basket for a party, an outfit or a set-up within your budget",
+      "• keep a list and the things you save — here and on the website",
+      `• remember your sizes, budget and who you shop for${linked ? " — shared with your web account" : " (sign in on the website with Telegram to share it with the web too)"}`,
+      "",
+      "Just tell me what you need.",
+    ].join("\n");
+  }
   return [
     `👋 <b>Hi, I'm Nia</b> — ${escapeHtml(merchant.name)}'s shopping assistant.`,
     "",
@@ -78,6 +102,18 @@ export function welcomeText(merchant: Merchant, linked: boolean): string {
 }
 
 export function welcomeKeyboard(appUrl: string, merchant: Merchant, hasServices: boolean): InlineKeyboardMarkup {
+  if (merchant.kind === "market") {
+    return {
+      inline_keyboard: [
+        [{ text: "🛍 What's popular", callback_data: CB.action("browse") }],
+        [
+          { text: "🧠 What you remember", callback_data: CB.action("memory") },
+          { text: "🔗 Link account", callback_data: CB.action("link") },
+        ],
+        [{ text: "Open Walrus Market", url: marketUrl(appUrl) }],
+      ],
+    };
+  }
   const rows: InlineKeyboardMarkup["inline_keyboard"] = [
     [{ text: "🛍 Browse products", callback_data: CB.action("browse") }],
     ...(hasServices ? [[{ text: "📅 Book a service", callback_data: CB.action("book") }]] : []),
@@ -164,4 +200,67 @@ export function bookingSummaryText(b: BookingSummaryData, locale: string, title 
   ]
     .filter(Boolean)
     .join("\n");
+}
+
+/* ─────────────────────────────── Commerce agent ─────────────────────────────── */
+
+/** A market search result as the tool returns it (prices already formatted). */
+export interface MarketResultView {
+  id: string;
+  name: string;
+  priceLabel?: string;
+  priceMaxLabel?: string;
+  unit: string | null;
+  url: string;
+  image: string | null;
+  why?: string[];
+  shop: { name: string; city: string | null };
+}
+
+export function marketCaption(p: MarketResultView): string {
+  const price = p.priceLabel ? `${p.priceLabel}${p.priceMaxLabel && p.priceMaxLabel !== p.priceLabel ? ` – ${p.priceMaxLabel}` : ""}${p.unit ? ` / ${escapeHtml(p.unit)}` : ""}` : "Price on request";
+  return [`<b>${escapeHtml(p.name)}</b>`, `${price} · ${escapeHtml(p.shop.name)}`, p.why?.length ? `<i>${escapeHtml(p.why.join(" · "))}</i>` : ""].filter(Boolean).join("\n");
+}
+
+export interface BasketTextView {
+  goal: string;
+  lines: { slot: string; name: string; variantName: string | null; quantity: number; lineTotalLabel?: string; shop: { name: string } }[];
+  missing: { slot: string; reason: string }[];
+  totalLabel?: string;
+  budgetLabel?: string;
+  remainingLabel?: string;
+  overBudgetByLabel?: string;
+  overBudgetBy: number | null;
+  notes: string[];
+}
+
+export function basketText(b: BasketTextView): string {
+  const lines = b.lines.map((l) => `• <b>${escapeHtml(l.slot)}</b>: ${l.quantity} × ${escapeHtml(l.name)}${l.variantName ? ` (${escapeHtml(l.variantName)})` : ""} · ${escapeHtml(l.shop.name)} — ${l.lineTotalLabel ?? ""}`);
+  const missing = b.missing.map((m) => `• ${escapeHtml(m.slot)}: ${escapeHtml(m.reason)}`);
+  const money = [
+    `<b>Total: ${b.totalLabel ?? ""}</b>`,
+    b.budgetLabel ? `Budget: ${b.budgetLabel} · ${b.overBudgetBy != null ? `over by ${b.overBudgetByLabel}` : `remaining ${b.remainingLabel}`}` : "",
+  ].filter(Boolean);
+  return [`🧺 <b>${escapeHtml(b.goal)}</b>`, ...lines, ...(missing.length ? ["", ...missing] : []), "", ...money, ...(b.notes.length ? ["", `<i>${escapeHtml(b.notes.join(" "))}</i>`] : [])].join("\n");
+}
+
+export interface MemorySectionView {
+  title: string;
+  items: { label: string; certainty: string; previousLabel: string | null }[];
+}
+
+export function memoryProfileText(sections: MemorySectionView[], shopName: string): string {
+  if (!sections.length) return `Nia doesn't remember anything about you at ${escapeHtml(shopName)} yet. Tell me things like your size or usual delivery area and I'll keep them — you can review or remove them any time.`;
+  const body = sections.flatMap((s) => [`<b>${escapeHtml(s.title)}</b>`, ...s.items.map((i) => `• ${escapeHtml(i.label)} — <i>${escapeHtml(i.certainty)}</i>${i.previousLabel ? ` (was ${escapeHtml(i.previousLabel)})` : ""}`), ""]);
+  return ["🧠 <b>What Nia remembers</b> · stored with Walrus Memory", "", ...body, "Tell me if anything's wrong or has changed — or review it in your profile."].join("\n");
+}
+
+export function compareText(products: { name: string; priceLabel?: string; shop?: { name: string } }[], rows: { label: string; values: (string | null)[] }[]): string {
+  const head = products.map((p, i) => `${i + 1}. <b>${escapeHtml(p.name)}</b> — ${p.priceLabel ?? "price on request"}${p.shop ? ` · ${escapeHtml(p.shop.name)}` : ""}`);
+  const specs = rows.slice(0, 8).map((r) => `<b>${escapeHtml(r.label)}</b>: ${r.values.map((v, i) => `${i + 1}) ${escapeHtml(v ?? "not listed")}`).join("  ")}`);
+  return ["⚖️ <b>Side by side</b>", ...head, ...(specs.length ? ["", ...specs] : [])].join("\n");
+}
+
+export function alternativesText(title: string, options: { name: string; variantName: string | null; reason: string; priceLabel?: string }[]): string {
+  return [`🔁 <b>${escapeHtml(title)}</b>`, ...options.map((o) => `• ${escapeHtml(o.name)}${o.variantName ? ` (${escapeHtml(o.variantName)})` : ""} — ${escapeHtml(o.reason)}${o.priceLabel ? ` · ${o.priceLabel}` : ""}`)].join("\n");
 }

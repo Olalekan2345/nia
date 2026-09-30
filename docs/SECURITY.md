@@ -36,6 +36,8 @@ Postgres-backed fixed windows (work across serverless instances): chat (per cust
 - Sensitive-pattern filter (`packages/shared/src/sensitive.ts`: Luhn-valid card numbers, CVV, OTP/verification codes, PINs, passwords, API keys, bot tokens, JWTs, private keys, seed phrases) runs before text reaches the model, before messages are stored, and before anything becomes memory.
 - Context is assembled deliberately; merchant text, catalog data, tool results and recalled memories are wrapped as data with explicit “no authority” instructions, and tag-like strings are stripped to prevent delimiter spoofing (tested).
 - The model can only act through typed, scoped tools; it cannot place orders, mark payments or touch another tenant.
+- Commerce-agent tools follow the same rules: the shopping session is per conversation (conversation ownership is checked before every turn); `saveForLater` only accepts products Nia showed in *this* conversation; `showMyMemory` requires a signed-in customer with memory on and reads only that customer's namespaces; alternatives and baskets search only the shops in scope (a shop's Nia: that shop). “Add all to cart” (web server action / Telegram callback) re-validates every product against the live catalog and adds it for the signed-in customer at that shop — never trusting session or client data for prices or ownership. Tests cover shortlist isolation, per-customer memory cards and shop-scoped alternatives.
+- Nothing the agent shows is fabricated: no reviews or ratings (none exist), price changes only from recorded history, specs marked “Not listed” when absent, and photo search stays off until a vision model is configured.
 
 ## Privacy
 

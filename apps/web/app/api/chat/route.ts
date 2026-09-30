@@ -38,6 +38,7 @@ import { getGuestId } from "@/lib/auth";
 import { assertSameOrigin, clientIpFrom, limit } from "@/lib/security";
 import { ensureCustomer, loadStorefront } from "@/lib/storefront";
 import { db, memoryStore } from "@/lib/server";
+import { traceLine } from "@/lib/trace";
 
 export const maxDuration = 60;
 
@@ -152,6 +153,7 @@ export async function POST(req: Request) {
         prepareStep: answerOnLastStep,
         temperature: 0.4,
         maxRetries: turn.maxRetries,
+        maxOutputTokens: turn.maxOutputTokens,
         abortSignal: req.signal,
         onFinish: ({ steps, totalUsage }) => {
           // Token use per turn matters on rate-limited tiers (e.g. Groq free: 8K tokens/min).
@@ -184,6 +186,10 @@ export async function POST(req: Request) {
         .map((tc) => tc.input as AskedDecision);
       const storedText = withAskedQuestions(text, asked);
       await saveAssistantMessage(db(), { conversation: conv, id: messageId, text: storedText, parts: baseParts, memoryUsed: memoryUsage(turn.scope), channel: "web" });
+      // Dev / NIA_TRACE=1: what Nia understood, which tools ran, what real data came back.
+      if (process.env.NODE_ENV === "development" || process.env.NIA_TRACE === "1") {
+        console.info(traceLine(baseParts, { recalled: turn.scope.recalled.customer.length + turn.scope.recalled.merchant.length, activeTools: turn.activeTools }));
+      }
 
       // Memory: extract → classify → persist → confirm durably.
       if (customer && turn.memoryMode === "on" && store) {

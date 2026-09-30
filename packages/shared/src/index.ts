@@ -5,3 +5,4 @@ export * from "./sensitive";
 export * from "./text";
 export * from "./errors";
 export * from "./market-departments";
+export * from "./shopping";

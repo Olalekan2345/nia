@@ -9,3 +9,7 @@ export * from "./customers";
 export * from "./repeat";
 export * from "./telegram-login";
 export * from "./market";
+export * from "./alternatives";
+export * from "./basket";
+export * from "./comparison";
+export * from "./price-history";

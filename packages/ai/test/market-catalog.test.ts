@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { applyDemoTemplate, DEMO_TEMPLATES, type Database, type DemoTemplateKey, type Merchant } from "@nia/database";
 import { createMerchant, setupTestDb } from "@nia/database/testing";
-import { createMarketTools, type NiaToolScope } from "../src";
+import { createConversation, createMarketTools, sessionHandle, type NiaToolScope } from "../src";
 
 // Nia's market search tool against the full demo catalog, with the arguments a model sends
 // for everyday shopper requests. No model and no memory: this checks the tool, not the prompt.
@@ -25,6 +25,7 @@ type Found = { name: string; category: string | null; price: number | null; shop
 
 /** One tool call in a fresh reply (each reply has its own search budget). */
 async function search(input: Record<string, unknown>): Promise<Found[]> {
+  const conversation = await createConversation(db, { merchantId: market.id, customerId: null, channel: "web" });
   const scope: NiaToolScope = {
     db,
     store: null,
@@ -32,10 +33,11 @@ async function search(input: Record<string, unknown>): Promise<Found[]> {
     customerId: null,
     customerMemoryEnabled: false,
     channel: "web",
-    conversationId: "market-catalog-test",
+    conversationId: conversation.id,
     memoryMode: "off",
     recalled: { customer: [], merchant: [] },
     flags: { memoryAssisted: false, forgotten: [] },
+    session: sessionHandle(db, conversation.id, conversation.session),
   };
   const out = (await createMarketTools(scope).searchMarket.execute!(input, { toolCallId: "t", messages: [], context: {} as never })) as { ok: boolean; products: Found[] };
   expect(out.ok).toBe(true);

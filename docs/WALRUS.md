@@ -90,6 +90,8 @@ The short label (“Size: XL”) exists for receipts and the Passport UI; it is 
 
 Without Walrus, Nia has no memory across sessions or channels — Memory OFF mode shows exactly that behaviour (“Could you remind me what you ordered?”). With it, the memory is durable, encrypted, portable across devices and channels, verifiable by blob ID, and outside any single app database.
 
+The commerce agent keeps Walrus responsible for durable semantic continuity: the memory card (“what do you remember about me?”) answers from memories recalled from Walrus in that turn, recommendations cite recalled preferences, and corrections supersede on Walrus with history. PostgreSQL stays canonical for prices, stock, carts, orders and bookings, and holds only the *current* shopping session (never long-term preferences). See [COMMERCE_AGENT.md](COMMERCE_AGENT.md#memory-in-the-agent).
+
 ## Proof for the hackathon
 
 - **Agent ID** = `MEMWAL_ACCOUNT_ID` (Memory page / Judge Mode, copy button).

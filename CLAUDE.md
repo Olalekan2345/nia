@@ -14,7 +14,7 @@ Nia: multi-merchant AI shopping & service assistant (web chat + Telegram) with d
 - Docs: `README.md`, `docs/*.md`, `brand.md`.
 
 ## Commands
-`pnpm dev:db` (embedded real Postgres 18, UTF-8, `.data/postgres`, port 54329, db `nia`) · `pnpm db:setup` · `pnpm db:reset` (local only) · `pnpm dev` · `pnpm test` (132 pass, 2 opt-in skipped) · `pnpm market:images` (catalog photo import, see catalog section) · `pnpm test:walrus` · `pnpm test:ai` · `pnpm test:e2e` (own server on port 3310 with NIA_E2E=1, own build dir `.next-e2e`, own database `<dev db>_e2e` prepared by `pnpm db:e2e` — runs beside `pnpm dev` and never touches dev data) · `pnpm lint` · `pnpm typecheck` · `pnpm build`.
+`pnpm dev:db` (embedded real Postgres 18, UTF-8, `.data/postgres`, port 54329, db `nia`) · `pnpm db:setup` · `pnpm db:reset` (local only) · `pnpm dev` · `pnpm test` (159 pass, 2 opt-in skipped) · `pnpm market:images` (catalog photo import, see catalog section) · `pnpm test:walrus` · `pnpm test:ai` · `pnpm test:e2e` (own server on port 3310 with NIA_E2E=1, own build dir `.next-e2e`, own database `<dev db>_e2e` prepared by `pnpm db:e2e` — runs beside `pnpm dev` and never touches dev data) · `pnpm lint` · `pnpm typecheck` · `pnpm build`.
 
 ## Key decisions
 - AI SDK **v7** (`ai@7`, `@ai-sdk/react@4`): `streamText` + `createUIMessageStream` data parts (`data-recall`, `data-memory`, `data-notice`); `stepCountIs`; tools close over a server-built scope. Tool input schemas avoid `format`/`pattern` (Gemini compatibility) and validate ids inside.
@@ -60,6 +60,30 @@ Nia: multi-merchant AI shopping & service assistant (web chat + Telegram) with d
 - **Verified 2026-09-30:** 132 unit tests (2 opt-in skipped), lint, typecheck, `next build`; Playwright smoke + dashboard + market-catalog 22/22 (mobile + desktop) and market-catalog 6/6 on desktop (the desktop project now includes `market-catalog`); the memory chat spec passed in the earlier full run (skipped on the re-run to save Groq quota). Screens checked at 1440/1280/1024/768/430/390 for `/market`, `?dept=gadgets`, `?col=phones-laptops`, `?q=orange juice`, a product page: 0 horizontal overflow, 0 broken images, no page errors.
 - Live Nia check (guest chat → no memory writes, real Groq, 2026-09-30): "Show me laptops under ₦700,000" → the 4 Tusk laptops ≤ ₦700k; "black dresses" → 2 black dresses; "wireless earbuds" → Floe Buds Lite + Pro; "I need a phone" / "birthday cake" → a budget / party-size question first (by design). "drinks", "orange juice", "men's sneakers", "home office" hit Groq's daily cap before a live answer — covered by the tool tests.
 - Photo coverage is lowest in Home (9/23) and Fashion (24/42 in Walrus Designers): Openverse has few usable CC0 photos for Nigerian dishes and fashion items. A Pexels key + `pnpm market:images -- --provider pexels`, then an eye review, would fill most gaps.
+
+## Commerce agent (2026-09-30) — full detail in `docs/COMMERCE_AGENT.md`
+Audit first, then extend (nothing rebuilt). Capability matrix before → after:
+| Capability | Before | Now | Where |
+|---|---|---|---|
+| Goal-aware discovery, hard vs soft constraints, "why" | partial (budget/colour/size) | `exclude` (hard), `prefer` (soft, reorders relevant results), `minBudget`, `forWhom`/`occasion` (session only), real `specs` + factual `why` | `catalog.ts` `searchProducts`, `agent-tools.ts` `whyReasons` |
+| Clarification | market askDecision | + prompt: confirm from memory instead of asking | `prompts.ts` |
+| "What do you remember about me?" | Passport page, Telegram `/memory` | `showMyMemory` card (Confirmed/Observed/Likely, "was Lekki", blob ids; model gets Walrus-recalled text), Telegram `/memory` grouped | `memory/src/profile.ts`, `agent-parts.tsx` |
+| Same as last time / reorder | orders | + bookings (`repeatBooking`), unavailable lines → alternatives | `repeat.ts`, `tools.ts` |
+| Substitutions | missing | `findAlternatives` (same item other option first; similar by shared tags/attributes, 0.6–1.4× price) on reorder, failed add, unavailable getProduct | `commerce/src/alternatives.ts` |
+| Comparison | market, price/options | real spec rows, "Not listed", `focus`, `notListed`; shop compare tool; compare page shows specs | `comparison.ts`, `compare-table.tsx` |
+| Baskets (event cart, guides, meal plan, occasion, list → cart, budget) | missing | `planBasket`: deterministic, budget-fitting, stable edits (`cheaper`, `previous`), per-shop totals, Add all to cart(s) | `commerce/src/basket.ts`, `BasketCard` |
+| Shopping session vs long-term memory | missing | `conversations.session` (migration 0004): intent, lastResults (R1…), shortlist (S1…), list, basket → `<nia_session>` | `ai/src/session.ts` |
+| Unfinished shopping | missing | previous conversation's session (≤14 days) only on CONTINUE_TALK | `session.ts` `previousSession` |
+| Web → Telegram | per shop | + Walrus Market guide on Telegram (chooser, shop links, decision buttons `ad:i`, basket `pb` → per-shop carts, `cs:<slug>` review & confirm) | `telegram/src/handler.ts`, `format.ts` |
+| Price history / watch | none | `product_price_history` recorded on product save; `getProduct.priceHistory`; price watch NOT implemented (no monitor) | `price-history.ts`, dashboard `saveProductAction` |
+| Reviews | none | none (not in data model) — prompt forbids inventing | — |
+| Visual search | none | honest boundary `visionCapability()` (off; Telegram photos get the reason) | `ai/src/capabilities.ts` |
+| Observability | tools list in dashboard | `[nia trace]` dev log (or `NIA_TRACE=1`), dashboard "Nia trace" per assistant message | `apps/web/lib/trace.ts` |
+- Token budget: new tools are gated per turn (`PLAN_TALK`, `SAVE_TALK`, `LIST_TALK`, `COMPARE_TALK`, `isMemoryQuestion`) — keep new tools gated; Groq free tier is 7K ITPM + 200K TPD.
+- DB: migration `0004_charming_radioactive_man.sql` (additive: `conversations.session jsonb default '{}'`, `product_price_history`). Applied locally; **not yet on Neon**.
+- Tests: 159 unit/integration (was 132) incl. `commerce/test/agent.test.ts`, `memory/test/profile.test.ts`, `ai/test/agent.test.ts`, Telegram market tests; e2e compare-page spec check.
+- **Groq output cap:** Groq rejects a request whose *expected* output exceeds its output-tokens-per-minute (free: 1,000 for qwen3.8-27b) — without `max_tokens` it estimates 1,200+, so every turn failed with "Request too large … OTPM". `callSettings()` now sets `maxOutputTokens` (chat 600/step, extraction 500; real outputs are ≤ ~340 / ~140), passed to web `streamText`, Telegram `generateText` and extraction. `aiBusyMessage` maps OTPM to "busy", not "conversation too long".
+- Live-verified 2026-09-30 evening (guest market chat, real Groq, local): **event cart** ("eight friends… ₦50,000") → planBasket across 3 shops, ₦42,000, ₦8,000 left; **personal shopper** (embedded-dev laptop ≤ ₦800k) → 4 real laptops explained from specs/options; **comparison** of the first three → spec table, "none lists a weight — I won't guess"; **gift for mum under ₦50k** → one decision question with chips. Known model slip: once called an unlisted-weight laptop "heavier". Signed-in flows (memory card, corrections, same-as-last-time, Telegram continuity) are covered by integration tests (mock Walrus store), not re-run live here.
 
 ## Entry flow (2026-09-30)
 - Landing CTAs say **Sign in & shop with Nia** (header: **Shop with Nia**) → `/market/signin`; signed-in visitors go straight to `/market`.

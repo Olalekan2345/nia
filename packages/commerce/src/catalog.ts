@@ -118,6 +118,25 @@ export interface ProductSearchInput {
   tags?: string[];
   /** Skip this many ranked results (paging). */
   offset?: number;
+  /** Hard constraint: never return products (or variants) described by these words ("red", "dairy"). */
+  exclude?: string[];
+  /** Soft preference: rank products described by these words higher, never filter ("lightweight", "darker"). */
+  prefer?: string[];
+}
+
+/** A word as a whole word (plural allowed) — "red" matches "Red" and "reds", not "shredded". */
+export function wordPattern(word: string): RegExp | null {
+  const w = word.toLowerCase().trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return w.length >= 2 ? new RegExp(`(?<![\\p{L}])${w}(?:e?s)?(?![\\p{L}])`, "u") : null;
+}
+
+const productText = (p: Product) => `${p.name} ${p.description ?? ""} ${p.category ?? ""} ${p.tags.join(" ")} ${Object.values(p.attributes).flat().join(" ")}`.toLowerCase();
+const variantText = (v: ProductVariant) => `${v.name} ${Object.values(v.options).join(" ")}`.toLowerCase();
+
+/** Which soft-preference words a product matches (for ranking and for "why" reasons). */
+export function preferenceHits(p: Pick<Product, "name" | "description" | "category" | "tags" | "attributes">, variants: Pick<ProductVariant, "name" | "options">[], prefer: string[]): string[] {
+  const text = `${productText(p as Product)} ${variants.map((v) => variantText(v as ProductVariant)).join(" ")}`;
+  return prefer.filter((w) => wordPattern(w)?.test(text));
 }
 
 /** One shop (its id) or several (Walrus Market passes every live shop). */
@@ -163,9 +182,19 @@ export async function searchProducts(db: Db, merchantId: string | string[], inpu
     ? tokens.filter((t) => !COLOUR_WORDS.has(t)).map((t) => new RegExp(`${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:e?s)?(?![\\p{L}])`, "u"))
     : [];
 
-  const scored: { card: ProductCardData; score: number }[] = [];
+  const excluded = (input.exclude ?? []).map(wordPattern).filter((r): r is RegExp => Boolean(r));
+  const prefer = (input.prefer ?? []).filter((w) => w.trim().length >= 2).slice(0, 6);
+
+  const scored: { card: ProductCardData; score: number; hits: number }[] = [];
   for (const p of rows) {
-    const vs = byProduct.get(p.id) ?? [];
+    let vs = byProduct.get(p.id) ?? [];
+    if (excluded.length) {
+      if (excluded.some((re) => re.test(productText(p)))) continue;
+      // Excluded options ("not red"): drop those variants; drop the product if nothing is left.
+      const allowed = vs.filter((v) => !excluded.some((re) => re.test(variantText(v))));
+      if (vs.length && allowed.filter((v) => v.active).length === 0) continue;
+      vs = allowed;
+    }
     if (subjectTokens.length) {
       const hay = `${p.name} ${p.description ?? ""} ${p.category ?? ""} ${p.tags.join(" ")} ${JSON.stringify(p.attributes)}`.toLowerCase();
       if (!subjectTokens.some((re) => re.test(hay))) continue;
@@ -202,10 +231,17 @@ export async function searchProducts(db: Db, merchantId: string | string[], inpu
       if ((p.description ?? "").toLowerCase().includes(t)) score += 1;
     }
     if (card.available) score += 0.5;
-    scored.push({ card, score });
+    scored.push({ card, score, hits: prefer.length ? preferenceHits(p, vs, prefer).length : 0 });
   }
   const offset = Math.max(0, input.offset ?? 0);
-  return scored.sort((a, b) => b.score - a.score).slice(offset, offset + limit).map((s) => s.card);
+  // Soft preferences reorder the clearly relevant results (≥ half the top score) — they never
+  // lift a weak match above them, and never filter anything out.
+  const top = scored.reduce((m, s) => Math.max(m, s.score), 0);
+  const relevant = (s: { score: number }) => (s.score >= top * 0.5 ? 1 : 0);
+  return scored
+    .sort((a, b) => relevant(b) - relevant(a) || b.hits - a.hits || b.score - a.score)
+    .slice(offset, offset + limit)
+    .map((s) => s.card);
 }
 
 export async function getProduct(db: Db, merchantId: string, idOrSlug: string): Promise<ProductCardData | null> {

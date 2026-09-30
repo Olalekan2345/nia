@@ -148,6 +148,8 @@ export function ChatView(props: ChatViewProps) {
   const actions: ChatActions = {
     slug,
     signInHref: paths.signIn,
+    profileHref: paths.profile,
+    shopName: props.shopName,
     locale,
     timeZone,
     signedIn,
@@ -156,6 +158,11 @@ export function ChatView(props: ChatViewProps) {
     addToCart: async (productId, variantId, quantity) => {
       const res = await addToCartAction(slug, { productId, variantId, quantity });
       if (res.ok) router.refresh();
+      return res.ok ? { ok: true } : { ok: false, error: res.error };
+    },
+    // A basket line or alternative from another shop goes into THAT shop's cart (the server re-checks the product belongs to it).
+    addToShopCart: async (shopSlug, productId, variantId, quantity) => {
+      const res = await addToCartAction(shopSlug, { productId, variantId, quantity });
       return res.ok ? { ok: true } : { ok: false, error: res.error };
     },
     confirmOrder: async (orderId) => {

@@ -20,8 +20,8 @@ Telegram ───────▶ │ /api/telegram/webhook  (secret check → c
 
 1. `POST /api/chat` — same-origin check, rate limit, resolve storefront by slug, customer from the session cookie (or a session-only guest id), conversation owned by that customer.
 2. Save the user message (sensitive values redacted).
-3. `prepareTurn()` (`packages/ai/src/orchestrator.ts`): load recent history **from the database**, build targeted recall queries, recall customer + shop memories from Walrus, load relevant policies and the cart, assemble the system prompt with data blocks.
-4. `streamText` with typed tools bound to the server-resolved scope; tool results render as cards.
+3. `prepareTurn()` (`packages/ai/src/orchestrator.ts`): load recent history **from the database**, build targeted recall queries, recall customer + shop memories from Walrus, load relevant policies, the cart and the conversation's **shopping session** (`<nia_session>`: goal, results shown, shortlist, list, basket), assemble the system prompt with data blocks, and offer only the tools this turn can use.
+4. `streamText` with typed tools bound to the server-resolved scope; tool results render as cards. Heavy lifting (baskets, totals, alternatives, comparisons, memory grouping) is deterministic server code — see [COMMERCE_AGENT.md](COMMERCE_AGENT.md).
 5. After the reply: extraction → policy → Walrus writes → durable wait; receipts stream as `data-memory` parts and update in place.
 6. The assistant message is stored with its UI parts and the list of memories used (for “Why Nia said this” and the dashboard).
 
@@ -35,7 +35,8 @@ Telegram uses the same `prepareTurn` + tools with `generateText`, then renders c
 | products, variants, services, availability | shop knowledge the owner chose to remember; operations notes |
 | customers, identities (web/Telegram), link tokens | |
 | carts/orders/items/events, bookings | |
-| conversations & messages | |
+| conversations & messages; the conversation's shopping session (current goal only — never long-term memory) | |
+| recorded price changes (`product_price_history`) | |
 | memory **metadata**: type, label, hashes, lifecycle, blob IDs, jobs, provenance | |
 | sessions, sign-in codes (hashed), rate limits, audit log | |
 
@@ -43,7 +44,7 @@ Prices, stock, order status and availability are never taken from memory.
 
 ## Typed tools (the model’s only way to act)
 
-`searchProducts, getProduct, searchServices, getService, getCustomerRecentOrders, getOrder, createDraftOrder, addItemToDraft, updateDraftItem, removeDraftItem, setFulfillment, showOrderSummary, getAvailableBookingSlots, createBookingDraft, getMerchantPolicy, recallCustomerMemory, recallMerchantMemory, forgetCustomerMemory` — each validates input, is bound to the current merchant/customer, and returns structured data. Placing an order or confirming a booking is **not** a tool: it happens only when the customer presses Confirm (web server action or Telegram callback).
+`searchProducts, getProduct, compareProducts, searchServices, getService, getCustomerRecentOrders, getOrder, createDraftOrder, addItemToDraft, updateDraftItem, removeDraftItem, setFulfillment, showOrderSummary, getAvailableBookingSlots, createBookingDraft, getMerchantPolicy, recallCustomerMemory, recallMerchantMemory, forgetCustomerMemory` plus the agent tools `planBasket, showMyMemory, saveForLater, updateShoppingList` (and, for the Walrus Market guide, `searchMarket, searchMarketServices, compareProducts, askDecision`) — each validates input, is bound to the current merchant/customer/conversation, and returns structured data. Placing an order or confirming a booking is **not** a tool: it happens only when the customer presses Confirm (web server action or Telegram callback). Tool list and gating: [COMMERCE_AGENT.md](COMMERCE_AGENT.md).
 
 ## Identity
 

@@ -5,6 +5,7 @@ import { newId } from "@nia/shared/server";
 import { ChatView } from "@/components/chat/chat-view";
 import { getGuestId } from "@/lib/auth";
 import { loadMarket } from "@/lib/market";
+import { botLink } from "@/lib/telegram";
 import { db, memoryStore } from "@/lib/server";
 
 export const metadata: Metadata = { title: "Ask Nia" };
@@ -45,6 +46,9 @@ export default async function MarketNiaPage({ searchParams }: { searchParams: Pr
 
   const store = memoryStore();
   const q = sp.q?.slice(0, 300);
+  const chatId = conversationId ?? newId();
+  // Same conversation (and shopping session) continues in the bot for a Telegram-connected account.
+  const telegramUrl = user?.telegramUserId ? botLink(`c_${chatId}`) : null;
   return (
     <main className="fixed inset-x-0 top-[7.5rem] bottom-0 z-20 mx-auto max-w-3xl md:static md:h-[calc(100dvh-4rem-2.5rem)] md:py-4">
       <div className="h-full overflow-hidden bg-surface md:rounded-[32px] md:border md:border-ink-900/[0.06] md:shadow-lift">
@@ -53,7 +57,8 @@ export default async function MarketNiaPage({ searchParams }: { searchParams: Pr
           shopName="Walrus Market"
           locale={merchant.locale}
           timeZone={merchant.timezone}
-          conversationId={conversationId ?? newId()}
+          conversationId={chatId}
+          telegramUrl={telegramUrl}
           initialMessages={initialMessages}
           signedIn={Boolean(user)}
           customerName={customer?.displayName ?? null}

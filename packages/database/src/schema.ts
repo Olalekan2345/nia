@@ -45,6 +45,7 @@ import type {
   PaymentStatus,
   FulfillmentMethod,
   ServiceAvailability,
+  ShoppingSession,
   WeeklyHours,
 } from "@nia/shared";
 
@@ -440,6 +441,28 @@ export const productVariants = pgTable(
   (t) => [index("product_variants_product_idx").on(t.productId)],
 );
 
+/**
+ * Recorded price changes (minor units). Nia may only say an item got cheaper
+ * or was a different price when a row here shows it — never from guesswork.
+ * Tracking starts when a product is created or its price first changes.
+ */
+export const productPriceHistory = pgTable(
+  "product_price_history",
+  {
+    id: id(),
+    merchantId: uuid("merchant_id")
+      .notNull()
+      .references(() => merchants.id, { onDelete: "cascade" }),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    variantId: uuid("variant_id").references(() => productVariants.id, { onDelete: "cascade" }),
+    price: money("price"),
+    recordedAt: timestamp("recorded_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("product_price_history_product_idx").on(t.productId, t.recordedAt)],
+);
+
 export interface ServiceOption {
   name: string;
   priceDelta?: number | null;
@@ -618,6 +641,12 @@ export const conversations = pgTable(
     /** "off" = before/after demo mode: no Walrus recall and no customer history. */
     memoryMode: text("memory_mode").$type<"on" | "off">().notNull().default("on"),
     title: text("title"),
+    /**
+     * Current shopping context for THIS conversation (goal, constraints, results
+     * shown, shortlist, list, proposed basket). Not long-term memory: durable
+     * facts reach Walrus only through extraction and the memory policy.
+     */
+    session: jsonb("session").$type<ShoppingSession>().notNull().default({}),
     lastMessageAt: timestamp("last_message_at", { withTimezone: true }).notNull().defaultNow(),
     createdAt: createdAt(),
   },

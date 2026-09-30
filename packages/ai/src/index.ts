@@ -8,3 +8,6 @@ export * from "./services";
 export type * from "./ui-types";
 export * from "./market-tools";
 export * from "./decisions";
+export * from "./session";
+export * from "./agent-tools";
+export * from "./capabilities";

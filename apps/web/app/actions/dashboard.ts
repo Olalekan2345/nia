@@ -18,7 +18,7 @@ import {
   users,
   type NiaSettings,
 } from "@nia/database";
-import { transitionBooking, transitionOrder } from "@nia/commerce";
+import { recordProductPrices, transitionBooking, transitionOrder } from "@nia/commerce";
 import { archiveMerchantMemory, customerNamespace, persistMemory, refreshRecords, rememberMerchantFact, retryFailed } from "@nia/memory";
 import { walrusConfig } from "@nia/config";
 import {
@@ -338,6 +338,8 @@ export async function saveProductAction(merchantId: string, input: z.input<typeo
         else await tx.insert(productVariants).values({ ...vals, productId: productId!, merchantId });
       }
     });
+    // Real price history (Nia only ever quotes recorded changes).
+    await recordProductPrices(db(), { merchantId, productId: productId! });
     await audit(db(), { merchantId, actorType: "user", actorId: user.id, action: d.id ? "product.updated" : "product.created", targetType: "product", targetId: productId });
     return { id: productId! };
   });

@@ -28,7 +28,9 @@ One platform bot serves every shop. A chat talks to one shop at a time (chosen b
 - `/start` — welcome explaining shopping, reordering, booking and memory, with buttons: Browse products · Book a service · My last order · Link account · Open the shop.
 - Free text — typing indicator, the same Nia orchestrator as web, then native cards: product cards (photo when an HTTPS image exists), service cards with **Book this**, slot buttons, booking/cart summaries with **✅ Confirm**, repeat buttons **Same quantity / Change quantity / View similar options**.
 - After a reply, new memories get an honest receipt: *🧠 Saving to memory… • Size: Medium* is sent at once, then **edited in place** to *🧠 Got it — I’ll remember that … saved with Walrus Memory* when the relayer confirms (Mainnet saves take ~30–60 s; the bot waits up to 35 s inside the webhook's 60 s). If Walrus is still confirming, the note says so and `/memory` shows the memory once stored. Placed orders and bookings get the same treatment.
-- `/last`, `/memory`, `/shop`, `/book`, `/link`, `/new`, `/logout`, `/help`.
+- `/last`, `/memory`, `/shop`, `/book`, `/link`, `/new`, `/logout`, `/help`. `/memory` groups memories with how sure Nia is (Confirmed / Observed / Likely) and what a correction replaced.
+- **Walrus Market guide on Telegram:** the chooser offers “🛍 Walrus Market — every shop”. Results link to each shop's page; decision questions arrive as buttons (a tapped option is stored with the message, so it becomes a memory exactly as on the web); baskets show exact totals with **🧺 Add all to cart** (each line into its shop's cart for this customer, products re-checked against the live catalog) and **Review & confirm** per shop, which switches to that shop's normal order summary — the customer still confirms each order. A web market conversation continues here (same conversation within 12 h, or `Continue in Telegram`), with its shopping session (results shown, shortlist, basket).
+- Photos get an honest reply: photo search isn't available with the configured model.
 
 ## Continue with Telegram (sign-in)
 

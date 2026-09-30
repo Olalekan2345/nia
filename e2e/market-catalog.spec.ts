@@ -142,6 +142,19 @@ test("new product pages work end to end: variants, price, and carts in two shops
   await expect(page.getByText("Arc A15 Smartphone")).toHaveCount(0);
 });
 
+test("comparison shows real specs and says when one isn't listed", async ({ page }) => {
+  await page.goto("/market?q=tusk");
+  const cards = page.locator("article").filter({ has: page.getByRole("button", { name: "Compare" }) });
+  await cards.filter({ hasText: "Tusk 15 Business Laptop" }).getByRole("button", { name: "Compare" }).click();
+  await cards.filter({ hasText: "Tusk Air 13 Ultrabook" }).getByRole("button", { name: "Compare" }).click();
+  await page.getByRole("link", { name: "Compare now" }).click();
+  const table = page.getByRole("table");
+  await expect(table).toContainText("Screen");
+  const weight = table.locator("tr", { has: page.getByRole("rowheader", { name: /Weight/ }) });
+  await expect(weight).toContainText("1.15 kg");
+  await expect(weight).toContainText("Not listed");
+});
+
 test("a photo that fails to load falls back to artwork, never a broken image", async ({ page }) => {
   await page.route("**/stock/**", (route) => route.abort());
   await page.goto("/s/adire-lane/shop/classic-ankara-wax-print");

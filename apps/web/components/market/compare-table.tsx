@@ -46,11 +46,24 @@ function Yes({ on }: { on: boolean }) {
   );
 }
 
-/** Side-by-side comparison; scrolls sideways on small screens. */
-export function CompareTable({ products, locale }: { products: CompareProduct[]; locale: string }) {
-  const rows: { label: string; cell: (p: CompareProduct) => React.ReactNode }[] = [
+/** One spec row from the catalog: a value per product (null = not listed). */
+export interface CompareSpecRow {
+  label: string;
+  values: (string | null)[];
+  differs: boolean;
+}
+
+/** Side-by-side comparison; scrolls sideways on small screens. Spec rows come from real catalog attributes. */
+export function CompareTable({ products, locale, specs = [] }: { products: CompareProduct[]; locale: string; specs?: CompareSpecRow[] }) {
+  const specRows = specs.map((s) => ({
+    label: s.label,
+    differs: s.differs,
+    cell: (_p: CompareProduct, i: number) => (s.values[i] != null ? <span className="text-sm">{s.values[i]}</span> : <span className="text-sm text-muted-foreground">Not listed</span>),
+  }));
+  const rows: { label: string; differs?: boolean; cell: (p: CompareProduct, i: number) => React.ReactNode }[] = [
     { label: "Price", cell: (p) => <span className="font-bold tabular">{productPriceLabel(p, locale)}</span> },
     { label: "Stock", cell: (p) => <AvailabilityBadge status={p.inventoryStatus as InventoryStatus} /> },
+    ...specRows,
     { label: "Shop", cell: (p) => `${p.shop.name}${p.shop.city ? ` · ${p.shop.city}` : ""}` },
     {
       label: "Options",
@@ -93,10 +106,11 @@ export function CompareTable({ products, locale }: { products: CompareProduct[];
             <tr key={r.label}>
               <th scope="row" className="border-t border-border p-2 text-xs font-semibold text-muted-foreground">
                 {r.label}
+                {r.differs ? <span className="ml-1.5 inline-block size-1.5 rounded-full bg-accent align-middle" title="Differs" aria-label="(differs)" /> : null}
               </th>
-              {products.map((p) => (
+              {products.map((p, i) => (
                 <td key={p.id} className="border-t border-border p-2 align-top">
-                  {r.cell(p)}
+                  {r.cell(p, i)}
                 </td>
               ))}
             </tr>

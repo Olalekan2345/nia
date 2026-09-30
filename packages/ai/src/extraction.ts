@@ -107,6 +107,7 @@ Extract memory candidates from the customer's latest message (use the rest only 
         output: Output.json(),
         temperature: 0,
         maxRetries: settings.maxRetries,
+      maxOutputTokens: settings.maxOutputTokens,
         providerOptions: settings.providerOptions,
       });
       logUsage(result.usage);
@@ -119,6 +120,7 @@ Extract memory candidates from the customer's latest message (use the rest only 
       output: Output.object({ schema: ExtractionResultSchema, name: "memory_candidates" }),
       temperature: 0,
       maxRetries: settings.maxRetries,
+      maxOutputTokens: settings.maxOutputTokens,
       providerOptions: settings.providerOptions,
     });
     logUsage(result.usage);

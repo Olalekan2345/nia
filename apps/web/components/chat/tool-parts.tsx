@@ -14,17 +14,23 @@ import { MarketProductCard } from "@/components/market/market-card";
 import { CompareTable, type CompareProduct } from "@/components/market/compare-table";
 import { ReceiptList } from "./memory-parts";
 import { useReceiptPoll } from "./use-receipt-poll";
+import { Alternatives, BasketCard, MemoryProfileCard, SavedNote, ShoppingListCard, WhyLine, type AlternativeView, type BasketView, type MemoryProfileView } from "./agent-parts";
 
 export interface ChatActions {
   slug: string;
   /** Sign-in page for this chat (a shop's, or Walrus Market's). */
   signInHref: string;
+  /** Where the customer reviews and corrects their memory (Memory Passport / market profile). */
+  profileHref: string;
+  shopName: string;
   locale: string;
   timeZone: string;
   signedIn: boolean;
   busy: boolean;
   send: (text: string) => void;
   addToCart: (productId: string, variantId: string | null, quantity: number) => Promise<{ ok: boolean; error?: string }>;
+  /** Add to a specific shop's cart (baskets and alternatives can span shops in Walrus Market). */
+  addToShopCart: (shopSlug: string, productId: string, variantId: string | null, quantity: number) => Promise<{ ok: boolean; error?: string }>;
   confirmOrder: (orderId: string) => Promise<{ ok: true; summary: OrderSummaryData; payment: PaymentStart | null; receipt: MemoryReceiptView | null } | { ok: false; error: string }>;
   confirmBooking: (bookingId: string) => Promise<{ ok: true; booking: BookingSummaryData; receipt: MemoryReceiptView | null } | { ok: false; error: string }>;
   cancelBooking: (bookingId: string) => Promise<{ ok: boolean; error?: string }>;
@@ -62,6 +68,10 @@ const PENDING_LABEL: Record<string, string> = {
   searchMarketServices: "Looking at services across shops",
   compareProducts: "Comparing",
   askDecision: "Thinking of a question",
+  planBasket: "Building your basket",
+  showMyMemory: "Checking what I remember",
+  saveForLater: "Saving those",
+  updateShoppingList: "Updating your list",
 };
 
 export function ToolStatus({ name }: { name: string }) {
@@ -168,6 +178,7 @@ function ProductResults({ products, actions }: { products: ProductCardData[]; ac
             compact
             actions={
               <>
+                <WhyLine why={(p as ProductCardData & { why?: string[] }).why} />
                 <AddToCart product={p} actions={actions} />
                 <Link href={`/s/${actions.slug}/shop/${p.slug}`} className={buttonClasses({ variant: "secondary", size: "sm" })}>
                   View
@@ -428,13 +439,14 @@ interface MarketToolProduct {
   inventoryStatus: InventoryStatus;
   url: string;
   options?: string[];
-  shop: { name: string; type: string; city: string | null; demo: boolean; delivery?: boolean; pickup?: boolean; deliveryAreas?: string[] };
+  why?: string[];
+  shop: { name: string; slug?: string; type: string; city: string | null; demo: boolean; delivery?: boolean; pickup?: boolean; deliveryAreas?: string[] };
 }
 
 function fromMarketTool(p: MarketToolProduct): CompareProduct {
   return {
     ...p,
-    shop: { name: p.shop.name, slug: p.url.split("/")[2] ?? "", label: p.shop.type, city: p.shop.city, demo: p.shop.demo },
+    shop: { name: p.shop.name, slug: p.shop.slug ?? p.url.split("/")[2] ?? "", label: p.shop.type, city: p.shop.city, demo: p.shop.demo },
     variants: (p.options ?? []).map((name) => ({ name, available: true })),
     delivery: Boolean(p.shop.delivery),
     pickup: Boolean(p.shop.pickup),
@@ -456,6 +468,7 @@ function MarketResults({ products, actions }: { products: MarketToolProduct[]; a
               layout="row"
               actions={
                 <>
+                  <WhyLine why={raw.why} />
                   <Link href={p.url} className={buttonClasses({ size: "sm" })}>
                     View at {p.shop.name}
                   </Link>
@@ -518,11 +531,35 @@ function MarketServiceResults({ services, actions }: { services: MarketToolServi
   );
 }
 
-function CompareResult({ products, actions }: { products: MarketToolProduct[]; actions: ChatActions }) {
+type SpecRow = { label: string; values: (string | null)[]; differs: boolean };
+
+/** A shop's own product as a comparison column (same shop for every column). */
+function fromShopProduct(p: ProductCardData, actions: ChatActions): CompareProduct {
+  return {
+    id: p.id,
+    name: p.name,
+    image: p.image,
+    category: p.category,
+    price: p.price,
+    priceMax: p.priceMax,
+    currency: p.currency,
+    unit: p.unit,
+    inventoryStatus: p.inventoryStatus,
+    url: `/s/${actions.slug}/shop/${p.slug}`,
+    shop: { name: actions.shopName, slug: actions.slug, label: "", city: null, demo: false },
+    variants: p.variants.map((v) => ({ name: v.name, available: v.available })),
+    delivery: false,
+    pickup: false,
+    deliveryAreas: [],
+  };
+}
+
+function CompareResult({ products, specs, actions }: { products: (MarketToolProduct | ProductCardData)[]; specs: SpecRow[]; actions: ChatActions }) {
   if (products.length < 2) return null;
+  const columns = products.map((p) => ("url" in p ? fromMarketTool(p) : fromShopProduct(p, actions)));
   return (
     <div className="nia-enter rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft p-3">
-      <CompareTable products={products.map(fromMarketTool)} locale={actions.locale} />
+      <CompareTable products={columns} locale={actions.locale} specs={specs} />
     </div>
   );
 }
@@ -584,6 +621,9 @@ export function ToolParts({ parts, actions, latest = true }: { parts: ToolPart[]
         signInShown = true;
         nodes.push(<SignInPrompt key={p.toolCallId} actions={actions} />);
       }
+      // Couldn't add (out of stock / not enough): real alternatives instead of a dead end.
+      const alts = (o.alternatives as AlternativeView[] | undefined) ?? [];
+      if (alts.length) nodes.push(<Alternatives key={p.toolCallId} title={`${String(o.error ?? "Unavailable")} — alternatives`} options={alts} quantity={Number(p.input?.quantity ?? 1)} actions={actions} />);
       continue;
     }
     switch (name) {
@@ -594,7 +634,19 @@ export function ToolParts({ parts, actions, latest = true }: { parts: ToolPart[]
         nodes.push(<MarketServiceResults key={p.toolCallId} services={(o.services as MarketToolService[]) ?? []} actions={actions} />);
         break;
       case "compareProducts":
-        nodes.push(<CompareResult key={p.toolCallId} products={(o.products as MarketToolProduct[]) ?? []} actions={actions} />);
+        nodes.push(<CompareResult key={p.toolCallId} products={(o.products as MarketToolProduct[]) ?? []} specs={(o.rows as SpecRow[]) ?? []} actions={actions} />);
+        break;
+      case "planBasket":
+        nodes.push(<BasketCard key={p.toolCallId} basket={o as unknown as BasketView} actions={actions} latest={latest} />);
+        break;
+      case "showMyMemory":
+        nodes.push(<MemoryProfileCard key={p.toolCallId} profile={o as unknown as MemoryProfileView} actions={actions} />);
+        break;
+      case "saveForLater":
+        nodes.push(<SavedNote key={p.toolCallId} saved={(o.saved as string[]) ?? []} />);
+        break;
+      case "updateShoppingList":
+        nodes.push(<ShoppingListCard key={p.toolCallId} list={(o.list as string[]) ?? []} actions={actions} latest={latest} />);
         break;
       case "askDecision":
         nodes.push(<DecisionChips key={p.toolCallId} question={String(o.question)} options={(o.options as string[]) ?? []} actions={actions} latest={latest} />);
@@ -602,9 +654,12 @@ export function ToolParts({ parts, actions, latest = true }: { parts: ToolPart[]
       case "searchProducts":
         nodes.push(<ProductResults key={p.toolCallId} products={(o.products as ProductCardData[]) ?? []} actions={actions} />);
         break;
-      case "getProduct":
+      case "getProduct": {
         nodes.push(<ProductResults key={p.toolCallId} products={[o.product as ProductCardData]} actions={actions} />);
+        const alts = (o.alternatives as AlternativeView[] | undefined) ?? [];
+        if (alts.length) nodes.push(<Alternatives key={`${p.toolCallId}-alt`} title="Not available right now — alternatives" options={alts} actions={actions} />);
         break;
+      }
       case "searchServices":
         nodes.push(<ServiceResults key={p.toolCallId} services={(o.services as ServiceCardData[]) ?? []} actions={actions} />);
         break;
@@ -630,6 +685,12 @@ export function ToolParts({ parts, actions, latest = true }: { parts: ToolPart[]
       default:
         if (CART_TOOLS.has(name) && p === lastCart && !hasSummary) {
           nodes.push(<CartStrip key={p.toolCallId} cart={o.cart as OrderSummaryData} actions={actions} />);
+        }
+        // Reorder: anything no longer available comes with real alternatives.
+        if (name === "createDraftOrder") {
+          for (const [i, a] of ((o.alternatives as { for: string; quantity: number; options: AlternativeView[] }[] | undefined) ?? []).entries()) {
+            nodes.push(<Alternatives key={`${p.toolCallId}-alt-${i}`} title={`${a.for} isn't available — alternatives`} options={a.options} quantity={a.quantity} actions={actions} />);
+          }
         }
     }
   }

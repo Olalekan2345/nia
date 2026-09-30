@@ -9,11 +9,32 @@ import { listConversationMessages } from "@nia/ai";
 import { formatDateTime } from "@nia/shared";
 import { Markdown } from "@/components/chat/markdown";
 import { requireMerchant } from "@/lib/access";
+import { traceFromParts } from "@/lib/trace";
 import { db } from "@/lib/server";
 
 export const metadata: Metadata = { title: "Conversation" };
 
 type Part = { type: string; data?: { phase?: string; receipts?: { label: string; status: string }[] }; output?: { ok?: boolean } };
+
+/** What Nia understood, which tools ran and what real data came back (staff only). */
+function TraceDetails({ parts }: { parts: unknown[] }) {
+  const { steps } = traceFromParts(parts);
+  if (!steps.length) return null;
+  return (
+    <details className="rounded-2xl border border-border bg-surface-2/50 px-3 py-2 text-xs">
+      <summary className="cursor-pointer font-semibold text-muted-foreground">Nia trace</summary>
+      <ol className="mt-2 space-y-1.5">
+        {steps.map((s, i) => (
+          <li key={i}>
+            <span className={s.ok ? "font-semibold" : "font-semibold text-danger"}>{s.tool}</span>
+            {s.input ? <span className="text-muted-foreground"> · {s.input}</span> : null}
+            <span className="block text-muted-foreground">→ {s.outcome}</span>
+          </li>
+        ))}
+      </ol>
+    </details>
+  );
+}
 
 export default async function ConversationDetail({ params }: { params: Promise<{ merchantId: string; conversationId: string }> }) {
   const { merchantId, conversationId } = await params;
@@ -63,6 +84,7 @@ export default async function ConversationDetail({ params }: { params: Promise<{
                   <p className="whitespace-pre-wrap">{m.content}</p>
                 )}
                 {tools.length ? <p className="text-xs text-muted-foreground">Tools: {[...new Set(tools)].join(", ")}</p> : null}
+                {m.role === "assistant" && tools.length ? <TraceDetails parts={m.parts} /> : null}
                 {memory?.receipts?.length ? (
                   <p className="text-xs text-memory">Remembered: {memory.receipts.filter((r) => r.status === "stored").map((r) => r.label).join(" · ") || "pending"}</p>
                 ) : null}

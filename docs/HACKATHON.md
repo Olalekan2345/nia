@@ -54,6 +54,15 @@ In Dashboard → Judge mode, type the question once and press **Ask both**:
 
 Both panes are live model calls; the only difference is Walrus recall (and history tools) being disabled on the left.
 
+### Commerce-agent flows where memory changes the outcome
+
+1. **What do you remember?** — chat card grouped by topic with Confirmed / Observed / Likely and Walrus blob ids; say “I moved to Yaba” → next time “Yaba now, Lekki before”.
+2. **Same as last time** — real order resolved (or a clarifying question if ambiguous), draft at today's prices, unavailable items with real alternatives; for services, “book the same haircut” resolves the last booking.
+3. **Event cart** — “Eight friends tonight, drinks, snacks and a cake, ₦50,000” → basket across shops with exact totals; “make the cake cheaper” changes only the cake; Add all to carts; confirm per shop.
+4. **Recipient & occasion** — “a gift for my sister's graduation under ₦70k” → with memory ON, Nia uses what it knows about her (and asks first if it might be out of date).
+5. **Web → Telegram** — shortlist two laptops on the web, then on Telegram: “show me those laptops again”.
+See [COMMERCE_AGENT.md](COMMERCE_AGENT.md).
+
 ## Submission checklist
 
 - [ ] Deployed on Mainnet (health shows `mainnet`), public URL works on mobile

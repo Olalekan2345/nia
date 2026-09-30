@@ -70,6 +70,13 @@ export function describeModel(): { provider: string | null; model: string | null
 export function callSettings(role: "chat" | "extraction"): {
   maxRetries: number;
   schemaInPrompt: boolean;
+  /**
+   * Output cap per model call. Groq rejects a request outright when its *expected*
+   * output exceeds the plan's output-tokens-per-minute (free tier: 1,000) — and without
+   * a cap it estimates 1,200+. Nia's real outputs are far smaller (a whole chat turn
+   * ≈ 100–350 tokens, extraction ≈ 6–140), so these caps never cut a normal reply.
+   */
+  maxOutputTokens?: number;
   providerOptions?: Record<string, Record<string, string | number | boolean>>;
 } {
   const cfg = aiConfig();
@@ -79,6 +86,7 @@ export function callSettings(role: "chat" | "extraction"): {
   return {
     maxRetries: 2,
     schemaInPrompt: role === "extraction" && !jsonSchema,
+    maxOutputTokens: role === "extraction" ? 500 : 600,
     providerOptions: role === "extraction" ? { groq: { structuredOutputs: jsonSchema } } : undefined,
   };
 }
@@ -97,6 +105,8 @@ export function aiBusyMessage(err: unknown): string | null {
     e = x.lastError ?? x.cause;
   }
   const text = parts.join(" ");
+  // Output-tokens-per-minute is a per-minute budget, not the conversation's length.
+  if (/output tokens per minute|\bOTPM\b/i.test(text)) return "Nia is getting a lot of messages right now. Please try again in a moment.";
   if (/request too large|reduce your message size/i.test(text)) {
     return "This conversation has grown too long for Nia’s current AI plan. Start a new chat (the + button) and Nia will still remember what you told her.";
   }

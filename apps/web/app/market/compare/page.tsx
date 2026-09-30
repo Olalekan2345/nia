@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, Sparkles } from "lucide-react";
 import { Mascot, buttonClasses } from "@nia/ui";
-import { marketProducts } from "@nia/commerce";
+import { compareFacts, marketProducts } from "@nia/commerce";
 import { CompareTable, toCompareProduct } from "@/components/market/compare-table";
 import { loadMarket } from "@/lib/market";
 import { db } from "@/lib/server";
@@ -29,7 +29,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
       {products.length >= 2 ? (
         <>
           <div className="rounded-3xl border border-border bg-surface p-4 sm:p-6">
-            <CompareTable products={products.map(toCompareProduct)} locale={locale} />
+            <CompareTable products={products.map(toCompareProduct)} locale={locale} specs={compareFacts(products).rows} />
           </div>
           <div className="nia-holo-border flex flex-wrap items-center gap-4 rounded-3xl p-5">
             <Mascot size={56} state="idle" decorative />

@@ -472,6 +472,8 @@ export interface ReorderResult {
   summary: OrderSummaryData;
   added: string[];
   unavailable: string[];
+  /** The same lines, structured — for finding alternatives. */
+  unavailableItems: { name: string; productId: string | null; variantId: string | null; quantity: number }[];
 }
 
 /** "Same as last time": copy a previous order's lines into the cart at today's prices and stock. */
@@ -484,9 +486,12 @@ export async function reorderToDraft(
   const items = await db.select().from(orderItems).where(eq(orderItems.orderId, source.id));
   const added: string[] = [];
   const unavailable: string[] = [];
+  const unavailableItems: ReorderResult["unavailableItems"] = [];
   for (const item of items) {
+    const label = `${item.name}${item.variantLabel ? ` (${item.variantLabel})` : ""}`;
     if (!item.productId) {
       unavailable.push(item.name);
+      unavailableItems.push({ name: label, productId: null, variantId: null, quantity: item.quantity });
       continue;
     }
     try {
@@ -504,11 +509,12 @@ export async function reorderToDraft(
       });
       added.push(`${item.quantity} × ${item.name}${item.variantLabel ? ` (${item.variantLabel})` : ""}`);
     } catch (err) {
-      unavailable.push(`${item.name}${item.variantLabel ? ` (${item.variantLabel})` : ""}: ${(err as Error).message}`);
+      unavailable.push(`${label}: ${(err as Error).message}`);
+      unavailableItems.push({ name: label, productId: item.productId, variantId: item.variantId, quantity: item.quantity });
     }
   }
   const draft = await getOrCreateDraft(db, { merchantId, customerId, channel, conversationId });
-  return { summary: await orderSummary(db, merchantId, draft.id), added, unavailable };
+  return { summary: await orderSummary(db, merchantId, draft.id), added, unavailable, unavailableItems };
 }
 
 export function describeAvailability(status: keyof typeof INVENTORY_LABELS): string {

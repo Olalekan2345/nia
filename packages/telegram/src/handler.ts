@@ -5,13 +5,14 @@
  * (dedup) before calling `processUpdate`. Telegram-native patterns: typing
  * indicator, inline keyboards, deep links — not a copy of the web UI.
  */
-import { and, desc, eq, gt, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, ne, sql } from "drizzle-orm";
 import { generateText, stepCountIs } from "ai";
 import {
   checkRateLimit,
   conversations,
   merchants,
   messages,
+  products,
   services,
   telegramIdentities,
   telegramLoginRequests,
@@ -23,9 +24,12 @@ import {
   type TelegramIdentity,
 } from "@nia/database";
 import {
+  addItemToDraft,
   consumeTelegramLinkToken,
   createBookingDraft,
   decideTelegramLogin,
+  getDraft,
+  orderSummary,
   findLoginRequestByToken,
   numberChoices,
   signOutEverywhere,
@@ -37,7 +41,7 @@ import {
   type ProductCardData,
   type ServiceCardData,
 } from "@nia/commerce";
-import { awaitDurable, customerPassport, resolveCandidate, type MemoryReceipt, type MemoryStore } from "@nia/memory";
+import { awaitDurable, customerPassport, groupMemoryProfile, resolveCandidate, type MemoryReceipt, type MemoryStore } from "@nia/memory";
 import {
   aiBusyMessage,
   answerOnLastStep,
@@ -53,14 +57,23 @@ import {
   prepareTurn,
   saveAssistantMessage,
   saveUserMessage,
+  visionCapability,
+  withAskedQuestions,
+  type AskedDecision,
 } from "@nia/ai";
 import { safeEqual } from "@nia/shared/server";
 import { isAppError } from "@nia/shared";
 import type { Bot } from "./api";
 import {
+  alternativesText,
+  basketText,
   bookingSummaryText,
   CB,
+  compareText,
   escapeHtml,
+  marketCaption,
+  memoryProfileText,
+  profileUrl,
   quote,
   orderSummaryText,
   productCaption,
@@ -70,6 +83,9 @@ import {
   marketUrl,
   welcomeKeyboard,
   welcomeText,
+  type BasketTextView,
+  type MarketResultView,
+  type MemorySectionView,
 } from "./format";
 import type { InlineKeyboardMarkup, TgCallbackQuery, TgMessage, TgUpdate, TgUser } from "./types";
 
@@ -131,11 +147,16 @@ async function upsertIdentity(db: Db, user: TgUser, chatId: number): Promise<Tel
   return row!;
 }
 
+/** A shop that turned on Telegram, or the Walrus Market guide (always reachable, so web shopping continues here). */
+function reachable(m: Merchant | undefined | null): m is Merchant {
+  return Boolean(m && m.status !== "paused" && (m.telegramEnabled || m.kind === "market"));
+}
+
 async function activeMerchant(c: ChatContext): Promise<Merchant | null> {
   const { db, defaultShopSlug } = c.deps;
   if (c.identity.activeMerchantId) {
     const [m] = await db.select().from(merchants).where(eq(merchants.id, c.identity.activeMerchantId));
-    if (m && m.telegramEnabled && m.status !== "paused") return m;
+    if (reachable(m)) return m;
   }
   if (defaultShopSlug) {
     const [m] = await db.select().from(merchants).where(eq(merchants.slug, defaultShopSlug));
@@ -205,18 +226,21 @@ function isLinked(customer: Customer): boolean {
 }
 
 async function sendShopChooser(c: ChatContext): Promise<void> {
+  const [market] = await c.deps.db.select({ slug: merchants.slug }).from(merchants).where(eq(merchants.kind, "market")).limit(1);
   const shops = await c.deps.db
     .select({ slug: merchants.slug, name: merchants.name })
     .from(merchants)
     .where(and(eq(merchants.telegramEnabled, true), eq(merchants.status, "live"), eq(merchants.isDemo, true)))
     .limit(8);
-  const keyboard: InlineKeyboardMarkup = { inline_keyboard: shops.map((s) => [{ text: s.name, callback_data: CB.shop(s.slug) }]) };
+  const keyboard: InlineKeyboardMarkup = {
+    inline_keyboard: [...(market ? [[{ text: "🛍 Walrus Market — every shop", callback_data: CB.shop(market.slug) }]] : []), ...shops.map((s) => [{ text: s.name, callback_data: CB.shop(s.slug) }])],
+  };
   await c.deps.bot.sendMessage(
     c.chatId,
-    shops.length
-      ? "👋 Hi, I'm <b>Nia</b>. Which shop would you like to talk to? (You can also open a shop's Telegram link from its website.)"
+    keyboard.inline_keyboard.length
+      ? `👋 Hi, I'm <b>Nia</b>. Which shop would you like to talk to?${market ? " Choose Walrus Market to shop every shop at once." : ""} (You can also open a shop's Telegram link from its website.)`
       : "👋 Hi, I'm <b>Nia</b>. Open a shop's Telegram link from its website to start chatting.",
-    { html: true, keyboard: shops.length ? keyboard : undefined },
+    { html: true, keyboard: keyboard.inline_keyboard.length ? keyboard : undefined },
   );
 }
 
@@ -245,8 +269,9 @@ export async function processUpdate(deps: TelegramDeps, update: TgUpdate): Promi
     return;
   }
 
-  if (!text) {
-    await deps.bot.sendMessage(c.chatId, "I can read text messages for now — tell me what you're looking for.");
+  if (!text || (message.photo?.length && !visionCapability().enabled)) {
+    // No pretend vision: photo search needs a vision model this deployment doesn't have.
+    await deps.bot.sendMessage(c.chatId, message.photo?.length ? visionCapability().reason : "I can read text messages for now — tell me what you're looking for.");
     return;
   }
   if (text.startsWith("/")) return handleCommand(c, text, message);
@@ -269,7 +294,7 @@ async function handleCommand(c: ChatContext, text: string, message: TgMessage): 
     if (payload.startsWith("l_")) return handleLink(c, payload);
     if (payload.startsWith("s_")) {
       const [m] = await db.select().from(merchants).where(eq(merchants.slug, payload.slice(2)));
-      if (m && m.telegramEnabled) {
+      if (reachable(m)) {
         await setActiveMerchant(c, m.id);
         return sendWelcome(c, m);
       }
@@ -387,7 +412,7 @@ async function handleContinue(c: ChatContext, conversationId: string): Promise<v
   const { db, bot } = c.deps;
   const [conv] = /^[0-9a-f-]{36}$/i.test(conversationId) ? await db.select().from(conversations).where(eq(conversations.id, conversationId)) : [];
   const [merchant] = conv ? await db.select().from(merchants).where(eq(merchants.id, conv.merchantId)) : [];
-  if (!conv || !merchant?.telegramEnabled) {
+  if (!conv || !reachable(merchant)) {
     const m = await activeMerchant(c);
     return m ? sendWelcome(c, m) : sendShopChooser(c);
   }
@@ -478,16 +503,12 @@ function repeatKeyboard(orderId: string): InlineKeyboardMarkup {
 
 async function sendMemorySummary(c: ChatContext, merchant: Merchant): Promise<void> {
   const customer = await customerFor(c, merchant);
-  const entries = (await customerPassport(c.deps.db, { merchantId: merchant.id, customerId: customer.id })).filter((e) => e.lifecycle === "active" && e.persistStatus === "stored");
-  const url = storefrontUrl(c.deps.appUrl, merchant, "/profile");
-  if (entries.length === 0) {
-    await c.deps.bot.sendMessage(c.chatId, `Nia doesn't remember anything about you at ${escapeHtml(merchant.name)} yet. Tell me things like your size or usual delivery area and I'll keep them — you can review or remove them any time.`, { html: true });
-    return;
-  }
-  const lines = entries.slice(0, 12).map((e) => `• ${escapeHtml(e.label)}`);
-  await c.deps.bot.sendMessage(c.chatId, `<b>What Nia remembers about you</b>\n${lines.join("\n")}\n\nReview, correct or forget items in your Memory Passport.`, {
+  // Grouped, with how sure Nia is (Confirmed / Observed / Likely) — the same view as the web chat's memory card.
+  const sections = groupMemoryProfile(await customerPassport(c.deps.db, { merchantId: merchant.id, customerId: customer.id }));
+  const url = profileUrl(c.deps.appUrl, merchant);
+  await c.deps.bot.sendMessage(c.chatId, memoryProfileText(sections, merchant.name), {
     html: true,
-    keyboard: { inline_keyboard: [[{ text: "Open Memory Passport", url }]] },
+    keyboard: sections.length ? { inline_keyboard: [[{ text: merchant.kind === "market" ? "Open your market profile" : "Open Memory Passport", url }]] } : undefined,
   });
 }
 
@@ -501,6 +522,15 @@ type ToolOutputs = {
   slots?: { serviceId: string; timeZone: string; slots: { startAt: string; label: string }[] };
   repeat?: { orderId: string } | null;
   signInRequired?: boolean;
+  /** Walrus Market guide results (prices pre-formatted, absolute shop urls built on send). */
+  market?: MarketResultView[];
+  compare?: { products: MarketResultView[]; rows: { label: string; values: (string | null)[] }[] };
+  decision?: AskedDecision;
+  basket?: BasketTextView;
+  memory?: MemorySectionView[];
+  saved?: string[];
+  list?: string[];
+  alternatives?: { title: string; options: { name: string; variantName: string | null; reason: string; priceLabel?: string }[] }[];
 };
 
 function collectOutputs(steps: { toolResults: { toolName: string; input: unknown; output: unknown }[] }[]): ToolOutputs {
@@ -510,14 +540,43 @@ function collectOutputs(steps: { toolResults: { toolName: string; input: unknown
       const o = r.output as Record<string, unknown> & { ok?: boolean; code?: string };
       if (!o || o.ok === false) {
         if (o?.code === "SIGN_IN_REQUIRED") out.signInRequired = true;
+        const alts = o?.alternatives as NonNullable<ToolOutputs["alternatives"]>[number]["options"] | undefined;
+        if (alts?.length) (out.alternatives ??= []).push({ title: `${String(o.error ?? "Unavailable")} — alternatives`, options: alts });
         continue;
       }
       switch (r.toolName) {
+        case "searchMarket":
+          out.market = o.products as MarketResultView[];
+          break;
+        case "compareProducts":
+          out.compare = { products: o.products as MarketResultView[], rows: (o.rows as { label: string; values: (string | null)[] }[]) ?? [] };
+          break;
+        case "askDecision":
+          out.decision = { question: String(o.question), options: (o.options as string[]) ?? [], topic: o.topic as string | undefined };
+          break;
+        case "planBasket":
+          out.basket = o as unknown as BasketTextView;
+          break;
+        case "showMyMemory":
+          out.memory = (o.sections as MemorySectionView[]) ?? [];
+          break;
+        case "saveForLater":
+          out.saved = (o.saved as string[]) ?? [];
+          break;
+        case "updateShoppingList":
+          out.list = (o.list as string[]) ?? [];
+          break;
+        case "createDraftOrder":
+          for (const a of (o.alternatives as { for: string; options: NonNullable<ToolOutputs["alternatives"]>[number]["options"] }[] | undefined) ?? []) {
+            (out.alternatives ??= []).push({ title: `${a.for} isn't available — alternatives`, options: a.options });
+          }
+          break;
         case "searchProducts":
           out.products = o.products as ProductCardData[];
           break;
         case "getProduct":
           out.products = [o.product as ProductCardData];
+          if ((o.alternatives as unknown[] | undefined)?.length) (out.alternatives ??= []).push({ title: "Not available right now — alternatives", options: o.alternatives as NonNullable<ToolOutputs["alternatives"]>[number]["options"] });
           break;
         case "searchServices":
           out.services = o.services as ServiceCardData[];
@@ -580,6 +639,33 @@ async function sendCards(c: ChatContext, merchant: Merchant, outputs: ToolOutput
   }
   if (outputs.repeat && !outputs.cart) {
     await bot.sendMessage(c.chatId, "Would you like:", { keyboard: repeatKeyboard(outputs.repeat.orderId) });
+  }
+
+  // Walrus Market results: each links to the shop's page on the web.
+  if (!outputs.compare) {
+    for (const p of (outputs.market ?? []).slice(0, 3)) {
+      const keyboard: InlineKeyboardMarkup = { inline_keyboard: [[{ text: `View at ${p.shop.name}`.slice(0, 60), url: `${appUrl}${p.url}` }]] };
+      if (p.image && /^https:\/\//.test(p.image)) await bot.sendPhoto(c.chatId, p.image, marketCaption(p), keyboard);
+      else await bot.sendMessage(c.chatId, marketCaption(p), { html: true, keyboard });
+    }
+  }
+  if (outputs.compare?.products.length) await bot.sendMessage(c.chatId, compareText(outputs.compare.products, outputs.compare.rows), { html: true });
+  if (outputs.basket) {
+    await bot.sendMessage(c.chatId, basketText(outputs.basket), {
+      html: true,
+      keyboard: outputs.basket.lines.length ? { inline_keyboard: [[{ text: "🧺 Add all to cart", callback_data: CB.basket() }], [{ text: "Make it cheaper", callback_data: CB.action("cheaper") }]] } : undefined,
+    });
+  }
+  if (outputs.memory) await bot.sendMessage(c.chatId, memoryProfileText(outputs.memory, merchant.name), { html: true });
+  for (const a of outputs.alternatives ?? []) await bot.sendMessage(c.chatId, alternativesText(a.title, a.options), { html: true });
+  if (outputs.saved?.length) await bot.sendMessage(c.chatId, `🔖 Saved: ${escapeHtml(outputs.saved.join(", "))} — here and on the website.`, { html: true });
+  if (outputs.list) await bot.sendMessage(c.chatId, outputs.list.length ? `📝 <b>Your list</b>\n${outputs.list.map((i) => `• ${escapeHtml(i)}`).join("\n")}` : "📝 Your list is empty.", { html: true });
+  // Decision question: options as buttons (tapping sends that answer, like the web chips).
+  if (outputs.decision?.options.length) {
+    await bot.sendMessage(c.chatId, escapeHtml(outputs.decision.question), {
+      html: true,
+      keyboard: { inline_keyboard: outputs.decision.options.slice(0, 5).map((o, i) => [{ text: o.slice(0, 40), callback_data: CB.decision(i) }]) },
+    });
   }
 }
 
@@ -647,16 +733,26 @@ export async function runTurn(c: ChatContext, merchant: Merchant, text: string, 
       prepareStep: answerOnLastStep,
       temperature: 0.4,
       maxRetries: turn.maxRetries,
+      maxOutputTokens: turn.maxOutputTokens,
     });
     const outputs = collectOutputs(result.steps as never);
     const usage = memoryUsage(turn.scope);
     const customerMemories = usage.filter((u) => u.scope === "customer").length;
-    let reply = toTelegramHtml(result.text || (outputs.products?.length ? "Here's what I found:" : "Done."));
+    let reply = toTelegramHtml(result.text || (outputs.products?.length || outputs.market?.length ? "Here's what I found:" : "Done."));
     if (customerMemories > 0) reply += `\n\n<i>🧠 ${customerMemories === 1 ? "Remembered from a previous visit" : `${customerMemories} memories used`}</i>`;
     if (outputs.signInRequired) reply += `\n\n<i>Link your web account (/link) so I can manage orders here.</i>`;
     await bot.sendMessage(c.chatId, reply, { html: true });
     await sendCards(c, merchant, outputs);
-    await saveAssistantMessage(db, { conversation, text: result.text, parts: [{ type: "text", text: result.text }], memoryUsed: usage, channel: "telegram" });
+    // Keep the decision question with the message (text + part), exactly as the web chat does,
+    // so a tapped answer keeps its meaning and becomes a memory directly.
+    const asked = outputs.decision ? [outputs.decision] : [];
+    await saveAssistantMessage(db, {
+      conversation,
+      text: withAskedQuestions(result.text, asked),
+      parts: [{ type: "text", text: result.text }, ...asked.map((input) => ({ type: "tool-askDecision", input }))],
+      memoryUsed: usage,
+      channel: "telegram",
+    });
 
     // Memory: extract → persist → "saving…" now, "saved with Walrus Memory" once confirmed.
     const after = await extractAndRemember(ctx, turn, { assistantText: result.text, userMessageId: saved.id });
@@ -677,6 +773,85 @@ export async function runTurn(c: ChatContext, merchant: Merchant, text: string, 
   } finally {
     clearInterval(typing);
   }
+}
+
+/* ─────────────────────────────── Baskets ─────────────────────────────── */
+
+/**
+ * "Add all to cart" on a proposed basket: each line goes into the cart of the
+ * shop that sells it, for this Telegram customer. Products are re-checked
+ * against the live catalog (the session is never trusted); nothing is ordered.
+ */
+async function addBasketToCarts(c: ChatContext, from: Merchant): Promise<void> {
+  const { db, bot, appUrl } = c.deps;
+  const convId = c.identity.activeConversationId;
+  const [conv] = convId ? await db.select().from(conversations).where(and(eq(conversations.id, convId), eq(conversations.merchantId, from.id))) : [];
+  const lines = conv?.session.basket?.lines ?? [];
+  if (!lines.length) {
+    await bot.sendMessage(c.chatId, "There's no basket to add yet — tell me what you need and I'll put one together.");
+    return;
+  }
+  const owners = await db.select({ id: products.id, merchantId: products.merchantId }).from(products).where(inArray(products.id, lines.map((l) => l.productId)));
+  const shopIds = [...new Set(owners.map((o) => o.merchantId))];
+  const shops = shopIds.length ? await db.select().from(merchants).where(and(inArray(merchants.id, shopIds), eq(merchants.kind, "shop"), eq(merchants.status, "live"))) : [];
+  const results = new Map<string, { shop: Merchant; added: number; failed: string[] }>();
+  for (const l of lines) {
+    const shop = shops.find((s) => s.id === owners.find((o) => o.id === l.productId)?.merchantId);
+    // A shop's own Nia only ever fills that shop's cart.
+    if (!shop || (from.kind === "shop" && shop.id !== from.id)) continue;
+    const entry = results.get(shop.id) ?? { shop, added: 0, failed: [] };
+    try {
+      const customer = await resolveTelegramCustomer(db, shop.id, tgRef(c.user));
+      await addItemToDraft(db, { merchantId: shop.id, customerId: customer.id, productId: l.productId, variantId: l.variantId, quantity: l.quantity, channel: "telegram" });
+      entry.added += l.quantity;
+    } catch (err) {
+      entry.failed.push(isAppError(err) ? err.message : "couldn't add");
+    }
+    results.set(shop.id, entry);
+  }
+  if (!results.size) {
+    await bot.sendMessage(c.chatId, "Those items aren't available any more — ask me for a fresh basket.");
+    return;
+  }
+  const rows = [...results.values()];
+  const chatsHere = (m: Merchant): boolean => reachable(m);
+  await bot.sendMessage(
+    c.chatId,
+    [
+      `🧺 <b>Added to your cart${rows.length > 1 ? "s" : ""}</b>`,
+      ...rows.map((r) => `• ${escapeHtml(r.shop.name)}: ${r.added} item${r.added === 1 ? "" : "s"}${r.failed.length ? ` — not added: ${escapeHtml(r.failed.join("; "))}` : ""}`),
+      "",
+      "Nothing is ordered yet — review and confirm each cart.",
+    ].join("\n"),
+    {
+      html: true,
+      keyboard: {
+        inline_keyboard: rows.map((r) => [
+          chatsHere(r.shop) ? { text: `Review & confirm · ${r.shop.name}`.slice(0, 60), callback_data: CB.reviewCart(r.shop.slug) } : { text: `Review at ${r.shop.name}`.slice(0, 60), url: storefrontUrl(appUrl, r.shop, "/orders") },
+        ]),
+      },
+    },
+  );
+}
+
+/** Switch to a shop and show its cart with Confirm — checkout stays the shop's own flow. */
+async function reviewShopCart(c: ChatContext, slug: string): Promise<void> {
+  const { db, bot } = c.deps;
+  const [shop] = await db.select().from(merchants).where(and(eq(merchants.slug, slug), eq(merchants.kind, "shop")));
+  if (!reachable(shop)) return;
+  await setActiveMerchant(c, shop.id);
+  const customer = await customerFor(c, shop);
+  const draft = await getDraft(db, shop.id, customer.id);
+  if (!draft) {
+    await bot.sendMessage(c.chatId, `Your cart at ${escapeHtml(shop.name)} is empty.`, { html: true });
+    return;
+  }
+  const summary = await orderSummary(db, shop.id, draft.id);
+  await bot.sendMessage(c.chatId, orderSummaryText(summary, shop.locale, `Your cart · ${escapeHtml(shop.name)}`), {
+    html: true,
+    keyboard: summary.blockers.length === 0 ? { inline_keyboard: [[{ text: "✅ Confirm order", callback_data: CB.confirmOrder(summary.id) }, { text: "✏️ Edit", callback_data: CB.editOrder(summary.id) }]] } : undefined,
+  });
+  if (summary.blockers.length) await bot.sendMessage(c.chatId, "Tell me delivery (with your area) or pickup, and I'll get it ready to confirm.");
 }
 
 /* ─────────────────────────────── Callbacks ─────────────────────────────── */
@@ -709,7 +884,7 @@ async function handleCallback(deps: TelegramDeps, q: TgCallbackQuery): Promise<v
   if (kind === "s") {
     const [m] = await db.select().from(merchants).where(eq(merchants.slug, arg));
     await bot.answerCallbackQuery(q.id).catch(() => {});
-    if (m && m.telegramEnabled) {
+    if (reachable(m)) {
       await setActiveMerchant(c, m.id);
       await sendWelcome(c, m);
     }
@@ -733,12 +908,33 @@ async function handleCallback(deps: TelegramDeps, q: TgCallbackQuery): Promise<v
           book: "I'd like to book a service. What do you offer?",
           change_qty: "I'd like the same as my last order, but with a different quantity.",
           similar: "Show me options similar to my last order.",
+          cheaper: "Make it cheaper",
         };
         if (arg === "last") return sendLastOrder(c, merchant);
         if (arg === "link") return handleCommand(c, "/link", q.message!);
         if (arg === "memory") return sendMemorySummary(c, merchant);
         if (prompts[arg]) return runTurn(c, merchant, prompts[arg]!);
         return;
+      }
+      case "ad": {
+        // A tapped decision option: send that option as the customer's answer.
+        await bot.answerCallbackQuery(q.id).catch(() => {});
+        const conv = c.identity.activeConversationId;
+        const [last] = conv
+          ? await db.select({ parts: messages.parts }).from(messages).where(and(eq(messages.conversationId, conv), eq(messages.role, "assistant"))).orderBy(desc(messages.createdAt)).limit(1)
+          : [];
+        const asked = ((last?.parts ?? []) as { type?: string; input?: AskedDecision }[]).findLast((p) => p.type === "tool-askDecision")?.input;
+        const answer = asked?.options?.[Number(arg)];
+        if (q.message) await bot.editReplyMarkup(chatId, q.message.message_id).catch(() => {});
+        return answer ? runTurn(c, merchant, answer) : undefined;
+      }
+      case "pb": {
+        await bot.answerCallbackQuery(q.id, "Adding to your cart…").catch(() => {});
+        return addBasketToCarts(c, merchant);
+      }
+      case "cs": {
+        await bot.answerCallbackQuery(q.id).catch(() => {});
+        return reviewShopCart(c, arg);
       }
       case "rp": {
         await bot.answerCallbackQuery(q.id).catch(() => {});
