@@ -20,6 +20,7 @@
     "test:e2e": "playwright test",
     "db:generate": "drizzle-kit generate --config packages/database/drizzle.config.ts",
     "db:migrate": "tsx packages/database/scripts/migrate.ts",
+    "db:migrate:prod": "tsx packages/database/scripts/migrate.ts --production",
     "db:seed": "tsx packages/database/scripts/seed.ts",
     "db:setup": "pnpm db:migrate && pnpm db:seed",
     "db:e2e": "tsx packages/database/scripts/prepare-e2e.ts",
