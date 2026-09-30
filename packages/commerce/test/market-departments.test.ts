@@ -126,6 +126,10 @@ describe("Walrus Market departments", () => {
     expect(laptops.map((p) => p.slug)).not.toContain("tusk-g16-gaming-laptop");
     const black = await searchMarket(db, { query: "dress", colour: "black", limit: 10 });
     expect(black.map((p) => p.slug)).toContain("wrap-midi-dress");
+    // Every result, not just the top few: no black phones, no salads with "dressing".
+    const blackDresses = await searchMarket(db, { query: "black dresses", limit: 48 });
+    expect(blackDresses.length).toBeGreaterThan(2);
+    expect(blackDresses.filter((p) => !/dress|gown/i.test(p.name)).map((p) => p.name)).toEqual([]);
     expect((await searchMarket(db, { department: "drinks", inStockOnly: true, limit: 48 })).every((p) => p.available)).toBe(true);
   });
 

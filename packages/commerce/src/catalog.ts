@@ -157,15 +157,18 @@ export async function searchProducts(db: Db, merchantId: string | string[], inpu
 
   const colourTerms = input.colour ? expandColour(input.colour) : [];
   const size = input.size?.toLowerCase().trim();
-  // With both colour and other words, a product must match one of the other words.
-  const subjectTokens = tokens.some((t) => COLOUR_WORDS.has(t)) ? tokens.filter((t) => !COLOUR_WORDS.has(t)) : [];
+  // With both colour and other words, a product must match one of the other words — as a word
+  // ending (plural allowed): "dress" matches "dresses", not a salad's "dressing".
+  const subjectTokens = tokens.some((t) => COLOUR_WORDS.has(t))
+    ? tokens.filter((t) => !COLOUR_WORDS.has(t)).map((t) => new RegExp(`${t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?:e?s)?(?![\\p{L}])`, "u"))
+    : [];
 
   const scored: { card: ProductCardData; score: number }[] = [];
   for (const p of rows) {
     const vs = byProduct.get(p.id) ?? [];
     if (subjectTokens.length) {
       const hay = `${p.name} ${p.description ?? ""} ${p.category ?? ""} ${p.tags.join(" ")} ${JSON.stringify(p.attributes)}`.toLowerCase();
-      if (!subjectTokens.some((t) => hay.includes(t))) continue;
+      if (!subjectTokens.some((re) => re.test(hay))) continue;
     }
     let matched: ProductVariant[] | undefined;
     if (colourTerms.length || size) {
