@@ -35,7 +35,9 @@ export const CB = {
   repeat: (orderId: string) => `rp:${orderId}`,
   consentYes: (candidateId: string) => `my:${candidateId}`,
   consentNo: (candidateId: string) => `mn:${candidateId}`,
-  action: (name: "browse" | "book" | "last" | "link" | "memory" | "change_qty" | "similar" | "cheaper") => `a:${name}`,
+  action: (name: "browse" | "book" | "last" | "link" | "memory" | "change_qty" | "similar" | "cheaper" | "market" | "shops") => `a:${name}`,
+  /** Ask the last question again across every shop in Walrus Market. */
+  marketSearch: () => "mk",
   shop: (slug: string) => `s:${slug.slice(0, 60)}`,
   /** Tap the i-th option of Nia's last decision question. */
   decision: (i: number) => `ad:${i}`,
@@ -97,7 +99,7 @@ export function welcomeText(merchant: Merchant, linked: boolean): string {
     "• book a service or appointment",
     `• remember useful things like your size or usual delivery area${linked ? " — shared with your web account" : " (sign in on the website with Telegram to share it with the web too)"}`,
     "",
-    "Just type what you need.",
+    "Just type what you need. Say “back to the market” (or /market) any time to shop every shop.",
   ].join("\n");
 }
 
@@ -110,7 +112,10 @@ export function welcomeKeyboard(appUrl: string, merchant: Merchant, hasServices:
           { text: "🧠 What you remember", callback_data: CB.action("memory") },
           { text: "🔗 Link account", callback_data: CB.action("link") },
         ],
-        [{ text: "Open Walrus Market", url: marketUrl(appUrl) }],
+        [
+          { text: "🏪 Chat with one shop", callback_data: CB.action("shops") },
+          { text: "Open on the web", url: marketUrl(appUrl) },
+        ],
       ],
     };
   }
@@ -121,10 +126,12 @@ export function welcomeKeyboard(appUrl: string, merchant: Merchant, hasServices:
       { text: "🧾 My last order", callback_data: CB.action("last") },
       { text: "🔗 Link account", callback_data: CB.action("link") },
     ],
+    // Move around without leaving Telegram: back to every shop, or to another shop.
     [
-      { text: "Open the shop", url: storefrontUrl(appUrl, merchant) },
-      { text: "🛍 Walrus Market", url: marketUrl(appUrl) },
+      { text: "🛍 Walrus Market", callback_data: CB.action("market") },
+      { text: "🔁 Other shops", callback_data: CB.action("shops") },
     ],
+    [{ text: "Open the shop on the web", url: storefrontUrl(appUrl, merchant) }],
   ];
   return { inline_keyboard: rows };
 }
@@ -214,7 +221,7 @@ export interface MarketResultView {
   url: string;
   image: string | null;
   why?: string[];
-  shop: { name: string; city: string | null };
+  shop: { name: string; slug?: string; city: string | null };
 }
 
 export function marketCaption(p: MarketResultView): string {

@@ -5,6 +5,7 @@ import { createMerchant, setupTestDb } from "@nia/database/testing";
 import { toMinorUnits } from "@nia/shared";
 import {
   compareFacts,
+  defaultQuantity,
   findAlternatives,
   getProduct,
   planBasket,
@@ -86,6 +87,20 @@ describe("planBasket", () => {
     expect(by(second, "Drinks").productId).toBe(by(first, "Drinks").productId);
     expect(by(second, "Snacks").productId).toBe(by(first, "Snacks").productId);
     expect(by(second, "Cake").unitPrice).toBeLessThan(by(first, "Cake").unitPrice);
+  });
+
+  it("fills quantities from the headcount when the model leaves them out", async () => {
+    expect(defaultQuantity("can", 8)).toBe(8);
+    expect(defaultQuantity("carton", 8)).toBe(2); // 1 L serves about four
+    expect(defaultQuantity("cake", 8)).toBe(1);
+    expect(defaultQuantity("platter", 8)).toBe(1);
+    expect(defaultQuantity("can", null)).toBe(1);
+    const plan = await planBasket(db, { goal: "Eight friends", people: 8, slots: [{ label: "Drinks", query: "soft drink" }, { label: "Cake", query: "cake" }, { label: "Juice", query: "juice", quantity: 3 }] });
+    const q = (slot: string) => plan.lines.find((l) => l.slot === slot)!;
+    expect(q("Drinks").quantity).toBe(8);
+    expect(q("Cake").quantity).toBe(1);
+    expect(q("Juice").quantity).toBe(3); // explicit wins
+    expect(plan.total).toBe(plan.lines.reduce((s, l) => s + l.unitPrice * l.quantity, 0));
   });
 
   it("never fills a slot with a guess, respects exclusions and a shop limit", async () => {

@@ -75,6 +75,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  */
 export function createAgentTools(scope: NiaToolScope, { shops }: { shops?: string[] } = {}) {
   const guard = toolGuard(scope.merchant);
+  // Tools are built per turn: this counts basket builds within one reply.
+  let basketsThisReply = 0;
 
   return {
     showMyMemory: tool({
@@ -112,7 +114,7 @@ export function createAgentTools(scope: NiaToolScope, { shops }: { shops?: strin
 
     planBasket: tool({
       description:
-        "Build a proposed basket from real products for a goal with several parts (party, event, outfit, home office, dinner plan, gift set, shopping list). You give the slots and quantities; the server finds real items, keeps it within the budget and totals it exactly. Re-call with changes ('make it cheaper', 'remove the monitor', 'shoes cheaper', 'everything in black'). Nothing is bought — the customer reviews and adds it.",
+        "Build a proposed basket from real products for a goal with several parts (party, event, outfit, home office, dinner plan, gift set, shopping list). You give the slots, quantities and people; the server finds real items, keeps it within the budget and totals it exactly. Set quantity for the headcount (8 friends → drinks quantity 8); if you leave it out and give people, single servings default to one each. Call it ONCE per reply; re-call only in a later reply with changes ('make it cheaper', 'remove the monitor', 'shoes cheaper', 'everything in black'). Nothing is bought — the customer reviews and adds it.",
       inputSchema: z.object({
         goal: z.string().min(3).max(80),
         budget: z.number().positive().optional().describe("Whole-basket budget, major currency units"),
@@ -135,6 +137,7 @@ export function createAgentTools(scope: NiaToolScope, { shops }: { shops?: strin
       }),
       execute: (input) =>
         guard(async () => {
+          if (++basketsThisReply > 2) return fail("You already built a basket in this reply — present it and ask what to change.", "INVALID");
           const currency = scope.merchant.currency;
           const prev = scope.session.current.basket;
           const plan: BasketPlan = await planBasket(scope.db, {

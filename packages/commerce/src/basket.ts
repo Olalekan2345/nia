@@ -75,6 +75,22 @@ interface Option {
 }
 
 const key = (s: string) => s.trim().toLowerCase();
+const clampQty = (n: number) => Math.max(1, Math.min(50, Math.floor(n)));
+
+/** One serving per person ("8 friends" → 8 cans); shared sizes by servings; whole items (cake, platter, box) stay at 1. */
+const PER_PERSON_UNIT = /^(?:can|bottle|cup|glass|plate|bowl|wrap|portion|serving|sachet|meal|pack of 1)$/i;
+const SHARED_UNIT: [RegExp, number][] = [
+  [/^(?:carton|litre|liter|1 l)$/i, 4],
+  [/^(?:jug|pitcher)$/i, 6],
+];
+
+/** The quantity for a slot: what the model asked for, else a sensible default from the headcount. */
+export function defaultQuantity(unit: string | null, people: number | null | undefined): number {
+  if (!people || people < 2 || !unit) return 1;
+  if (PER_PERSON_UNIT.test(unit.trim())) return clampQty(people);
+  const shared = SHARED_UNIT.find(([re]) => re.test(unit.trim()));
+  return shared ? clampQty(Math.ceil(people / shared[1])) : 1;
+}
 
 /** Buyable options for one product: the colour-matched variant if asked, else the cheapest available. */
 function optionFor(p: MarketProduct, wantColour: boolean): Option | null {
@@ -117,9 +133,11 @@ export async function planBasket(db: Parameters<typeof searchMarket>[0], input: 
         options = plain.map((p) => optionFor(p, false)).filter((o): o is Option => Boolean(o));
         if (options.length) notes.push(`No ${colour} option for ${slot.label}; kept the closest match.`);
       }
-      return { slot, options, quantity: Math.max(1, Math.min(50, Math.floor(slot.quantity ?? 1))) };
+      return { slot, options, quantity: slot.quantity != null ? clampQty(slot.quantity) : null };
     }),
   );
+  // Explicit quantity wins; otherwise a default from the headcount and the chosen item's unit.
+  const qty = (s: (typeof perSlot)[number], o: Option) => s.quantity ?? defaultQuantity(o.product.unit, input.people);
 
   // 2. Initial choice: keep last proposal's pick unless asked to change it.
   const choice = new Map<string, number>(); // slot key → index into options
@@ -146,7 +164,11 @@ export async function planBasket(db: Parameters<typeof searchMarket>[0], input: 
     }
   }
 
-  const totalOf = () => perSlot.reduce((sum, s) => (choice.has(key(s.slot.label)) ? sum + s.options[choice.get(key(s.slot.label))!]!.unitPrice * s.quantity : sum), 0);
+  const totalOf = () =>
+    perSlot.reduce((sum, s) => {
+      const i = choice.get(key(s.slot.label));
+      return i == null ? sum : sum + s.options[i]!.unitPrice * qty(s, s.options[i]!);
+    }, 0);
 
   // 3. Fit the budget: step the priciest line down to its next cheaper real option.
   const budget = input.budget ?? null;
@@ -162,7 +184,7 @@ export async function planBasket(db: Parameters<typeof searchMarket>[0], input: 
             .map((o, i) => ({ o, i }))
             .filter(({ o }) => o.unitPrice < current.unitPrice)
             .sort((a, b) => b.o.unitPrice - a.o.unitPrice)[0];
-          return next ? { k, i: next.i, line: current.unitPrice * s.quantity } : null;
+          return next ? { k, i: next.i, line: current.unitPrice * qty(s, current) } : null;
         })
         .filter((x): x is NonNullable<typeof x> => Boolean(x))
         .sort((a, b) => b.line - a.line);
@@ -173,10 +195,12 @@ export async function planBasket(db: Parameters<typeof searchMarket>[0], input: 
   }
 
   // 4. Lines and exact totals.
-  const lines: BasketLine[] = perSlot.flatMap(({ slot, options, quantity }) => {
+  const lines: BasketLine[] = perSlot.flatMap((s) => {
+    const { slot, options } = s;
     const idx = choice.get(key(slot.label));
     if (idx == null) return [];
     const o = options[idx]!;
+    const quantity = qty(s, o);
     return [
       {
         slot: slot.label,

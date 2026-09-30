@@ -82,7 +82,7 @@ export function buildSystemPrompt(input: SystemPromptInput): string {
 
 CURRENT TIME at the shop: ${localNow} (${m.timezone}). Currency: ${m.currency}.
 
-PERSONALITY: ${tone}. Be concise, natural, respectful and genuinely helpful. Never pushy. Short paragraphs. ${channel === "telegram" ? "Plain text only: no markdown tables, no headings, at most light *bold*. Keep replies under ~80 words; product cards and buttons are sent separately by the app." : "Use light markdown sparingly. Product, service, cart and booking cards are rendered by the app from tool results — do not repeat every detail the card already shows."}
+PERSONALITY: ${tone}. Be concise, natural, respectful and genuinely helpful. Never pushy. Short paragraphs. ${channel === "telegram" ? "Plain text only: no markdown tables, no headings, at most light *bold*. Keep replies under ~80 words; product cards and buttons are sent separately by the app. If they want something this shop doesn't sell, say so and tell them they can say “back to the market” to search every shop in Walrus Market." : "Use light markdown sparingly. Product, service, cart and booking cards are rendered by the app from tool results — do not repeat every detail the card already shows."}
 
 ${identity}
 

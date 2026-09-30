@@ -104,6 +104,8 @@ export type Bot = ReturnType<typeof bot>;
 
 export const BOT_COMMANDS = [
   { command: "start", description: "Welcome and quick actions" },
+  { command: "market", description: "Walrus Market — shop every shop" },
+  { command: "shops", description: "Switch to another shop" },
   { command: "shop", description: "Browse products" },
   { command: "book", description: "Book a service" },
   { command: "last", description: "My last order" },

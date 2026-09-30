@@ -87,6 +87,7 @@ import {
   type MarketResultView,
   type MemorySectionView,
 } from "./format";
+import { navigationIntent, type NavIntent, type NavPlace } from "./navigation";
 import type { InlineKeyboardMarkup, TgCallbackQuery, TgMessage, TgUpdate, TgUser } from "./types";
 
 export interface TelegramDeps {
@@ -275,9 +276,58 @@ export async function processUpdate(deps: TelegramDeps, update: TgUpdate): Promi
     return;
   }
   if (text.startsWith("/")) return handleCommand(c, text, message);
+  // "Back to the market", "switch to Walrus Drinks", "take me to the bakery" — move without a model call.
+  const nav = navigationIntent(text, await navPlaces(deps.db));
+  if (nav) return handleNavigation(c, nav, message.message_id);
   const merchant = await activeMerchant(c);
   if (!merchant) return sendShopChooser(c);
   await runTurn(c, merchant, text, message.message_id);
+}
+
+/* ─────────────────────────────── Moving between shops ─────────────────────────────── */
+
+/** Where a customer can go from any chat: Walrus Market and every shop that chats on Telegram. */
+async function navPlaces(db: Db): Promise<NavPlace[]> {
+  const rows = await db
+    .select({ slug: merchants.slug, name: merchants.name, businessType: merchants.businessType, kind: merchants.kind, telegramEnabled: merchants.telegramEnabled, status: merchants.status })
+    .from(merchants)
+    .where(and(eq(merchants.status, "live"), sql`(${merchants.kind} = 'market' or ${merchants.telegramEnabled})`));
+  return rows.map((r) => ({ slug: r.slug, name: r.name, businessType: r.businessType, kind: r.kind === "market" ? "market" : "shop" }));
+}
+
+async function marketRow(db: Db): Promise<Merchant | undefined> {
+  const [m] = await db.select().from(merchants).where(eq(merchants.kind, "market")).limit(1);
+  return m;
+}
+
+/**
+ * Switch the chat to Walrus Market or another shop. Carts stay with each shop,
+ * and the conversation at the new place continues where it was left. If the
+ * message also asked for something ("…and find me a phone"), answer it there.
+ */
+async function handleNavigation(c: ChatContext, nav: NavIntent, externalId?: number): Promise<void> {
+  const { db, bot } = c.deps;
+  if (nav.target.kind === "chooser") return sendShopChooser(c);
+  const target = nav.target;
+  const m = target.kind === "market" ? await marketRow(db) : (await db.select().from(merchants).where(eq(merchants.slug, target.slug)))[0];
+  if (!reachable(m)) return sendShopChooser(c);
+  const already = c.identity.activeMerchantId === m.id;
+  if (!already) await setActiveMerchant(c, m.id);
+  if (nav.request) {
+    if (!already) await bot.sendMessage(c.chatId, switchedText(m), { html: true });
+    return runTurn(c, m, nav.request, externalId);
+  }
+  if (already) {
+    await bot.sendMessage(c.chatId, `You're in ${escapeHtml(m.name)} — what can I find for you?${m.kind === "shop" ? " (Say “back to the market” to shop every shop.)" : ""}`, { html: true });
+    return;
+  }
+  return sendWelcome(c, m);
+}
+
+function switchedText(m: Merchant): string {
+  return m.kind === "market"
+    ? "🛍 <b>Walrus Market</b> — every shop. Your carts at each shop are kept."
+    : `🏪 You're now chatting with <b>${escapeHtml(m.name)}</b>. Say “back to the market” any time.`;
 }
 
 /* ─────────────────────────────── Commands ─────────────────────────────── */
@@ -303,6 +353,8 @@ async function handleCommand(c: ChatContext, text: string, message: TgMessage): 
     return merchant ? sendWelcome(c, merchant) : sendShopChooser(c);
   }
   if (cmd === "/logout") return sendSignOutEverywhere(c);
+  if (cmd === "/market") return handleNavigation(c, { target: { kind: "market" }, request: payload || null }, message.message_id);
+  if (cmd === "/shops") return sendShopChooser(c);
 
   const merchant = await activeMerchant(c);
   if (!merchant) return sendShopChooser(c);
@@ -332,7 +384,7 @@ async function handleCommand(c: ChatContext, text: string, message: TgMessage): 
       );
       return;
     default:
-      await bot.sendMessage(c.chatId, "I don't know that command. Try /start, /shop, /book, /last, /memory or /logout — or just type what you need.");
+      await bot.sendMessage(c.chatId, "I don't know that command. Try /start, /market, /shops, /shop, /book, /last, /memory or /logout — or just type what you need.");
   }
 }
 
@@ -531,6 +583,8 @@ type ToolOutputs = {
   saved?: string[];
   list?: string[];
   alternatives?: { title: string; options: { name: string; variantName: string | null; reason: string; priceLabel?: string }[] }[];
+  /** This shop's search found nothing — offer the whole market. */
+  emptySearch?: boolean;
 };
 
 function collectOutputs(steps: { toolResults: { toolName: string; input: unknown; output: unknown }[] }[]): ToolOutputs {
@@ -573,6 +627,7 @@ function collectOutputs(steps: { toolResults: { toolName: string; input: unknown
           break;
         case "searchProducts":
           out.products = o.products as ProductCardData[];
+          if (!out.products?.length) out.emptySearch = true;
           break;
         case "getProduct":
           out.products = [o.product as ProductCardData];
@@ -644,7 +699,10 @@ async function sendCards(c: ChatContext, merchant: Merchant, outputs: ToolOutput
   // Walrus Market results: each links to the shop's page on the web.
   if (!outputs.compare) {
     for (const p of (outputs.market ?? []).slice(0, 3)) {
-      const keyboard: InlineKeyboardMarkup = { inline_keyboard: [[{ text: `View at ${p.shop.name}`.slice(0, 60), url: `${appUrl}${p.url}` }]] };
+      // View it on the web, or carry on chatting with that shop right here.
+      const keyboard: InlineKeyboardMarkup = {
+        inline_keyboard: [[{ text: `View at ${p.shop.name}`.slice(0, 60), url: `${appUrl}${p.url}` }, ...(p.shop.slug ? [{ text: "💬 Chat with shop", callback_data: CB.shop(p.shop.slug) }] : [])]],
+      };
       if (p.image && /^https:\/\//.test(p.image)) await bot.sendPhoto(c.chatId, p.image, marketCaption(p), keyboard);
       else await bot.sendMessage(c.chatId, marketCaption(p), { html: true, keyboard });
     }
@@ -743,6 +801,12 @@ export async function runTurn(c: ChatContext, merchant: Merchant, text: string, 
     if (outputs.signInRequired) reply += `\n\n<i>Link your web account (/link) so I can manage orders here.</i>`;
     await bot.sendMessage(c.chatId, reply, { html: true });
     await sendCards(c, merchant, outputs);
+    if (merchant.kind === "shop" && outputs.emptySearch && !outputs.products?.length && (await marketRow(db))) {
+      await bot.sendMessage(c.chatId, `Not something ${escapeHtml(merchant.name)} has? I can look across every shop.`, {
+        html: true,
+        keyboard: { inline_keyboard: [[{ text: "🛍 Search Walrus Market", callback_data: CB.marketSearch() }]] },
+      });
+    }
     // Keep the decision question with the message (text + part), exactly as the web chat does,
     // so a tapped answer keeps its meaning and becomes a memory directly.
     const asked = outputs.decision ? [outputs.decision] : [];
@@ -913,6 +977,8 @@ async function handleCallback(deps: TelegramDeps, q: TgCallbackQuery): Promise<v
         if (arg === "last") return sendLastOrder(c, merchant);
         if (arg === "link") return handleCommand(c, "/link", q.message!);
         if (arg === "memory") return sendMemorySummary(c, merchant);
+        if (arg === "market") return handleNavigation(c, { target: { kind: "market" }, request: null });
+        if (arg === "shops") return sendShopChooser(c);
         if (prompts[arg]) return runTurn(c, merchant, prompts[arg]!);
         return;
       }
@@ -931,6 +997,15 @@ async function handleCallback(deps: TelegramDeps, q: TgCallbackQuery): Promise<v
       case "pb": {
         await bot.answerCallbackQuery(q.id, "Adding to your cart…").catch(() => {});
         return addBasketToCarts(c, merchant);
+      }
+      case "mk": {
+        // Nothing here in this shop: ask the same question across every shop in Walrus Market.
+        await bot.answerCallbackQuery(q.id).catch(() => {});
+        const conv = c.identity.activeConversationId;
+        const [lastAsk] = conv
+          ? await db.select({ content: messages.content }).from(messages).where(and(eq(messages.conversationId, conv), eq(messages.role, "user"))).orderBy(desc(messages.createdAt)).limit(1)
+          : [];
+        return handleNavigation(c, { target: { kind: "market" }, request: lastAsk?.content?.trim() || null });
       }
       case "cs": {
         await bot.answerCallbackQuery(q.id).catch(() => {});

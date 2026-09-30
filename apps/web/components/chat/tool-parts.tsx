@@ -605,6 +605,8 @@ export function ToolParts({ parts, actions, latest = true }: { parts: ToolPart[]
   const nodes: React.ReactNode[] = [];
   const hasSummary = parts.some((p) => p.type === "tool-showOrderSummary" && p.state === "output-available" && p.output?.ok);
   const lastCart = [...parts].reverse().find((p) => CART_TOOLS.has(p.type.slice(5)) && p.state === "output-available" && p.output?.ok);
+  // If the model re-planned within one reply, only its final basket is shown.
+  const lastBasket = [...parts].reverse().find((p) => p.type === "tool-planBasket" && p.state === "output-available" && p.output?.ok);
   let signInShown = false;
 
   for (const p of parts) {
@@ -637,7 +639,7 @@ export function ToolParts({ parts, actions, latest = true }: { parts: ToolPart[]
         nodes.push(<CompareResult key={p.toolCallId} products={(o.products as MarketToolProduct[]) ?? []} specs={(o.rows as SpecRow[]) ?? []} actions={actions} />);
         break;
       case "planBasket":
-        nodes.push(<BasketCard key={p.toolCallId} basket={o as unknown as BasketView} actions={actions} latest={latest} />);
+        if (p === lastBasket) nodes.push(<BasketCard key={p.toolCallId} basket={o as unknown as BasketView} actions={actions} latest={latest} />);
         break;
       case "showMyMemory":
         nodes.push(<MemoryProfileCard key={p.toolCallId} profile={o as unknown as MemoryProfileView} actions={actions} />);

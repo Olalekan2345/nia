@@ -340,3 +340,55 @@ describe("Walrus Market on Telegram", () => {
     expect(texts()[0]).toMatch(/Your cart · Crumb &amp; Co\./);
   });
 });
+
+describe("moving between shops and the market on Telegram", () => {
+  const activeSlug = async (userId: number) => {
+    const [identity] = await db.select().from(telegramIdentities).where(eq(telegramIdentities.telegramUserId, userId));
+    const [m] = identity?.activeMerchantId ? await db.select().from(merchants).where(eq(merchants.id, identity.activeMerchantId)) : [];
+    return m?.slug ?? null;
+  };
+
+  it("goes back to the market and to another shop in plain words, keeping the rest of the request", async () => {
+    await processUpdate(deps(), textUpdate(7201, "/start s_walrus-drinks-tg"));
+    expect(await activeSlug(7201)).toBe("walrus-drinks-tg");
+    sent = [];
+    await processUpdate(deps(), textUpdate(7201, "take me back to the market"));
+    expect(await activeSlug(7201)).toBe("market-tg");
+    expect(texts()[0]).toMatch(/Walrus Market shopping guide/);
+
+    sent = [];
+    setModelOverrides({ chat: scriptedModel([{ text: "Here are our cakes." }]) });
+    await processUpdate(deps(), textUpdate(7201, "switch to Crumb & Co. and show me cakes"));
+    expect(await activeSlug(7201)).toBe("crumb-tg");
+    expect(texts()[0]).toMatch(/now chatting with <b>Crumb &amp; Co\.<\/b>/);
+    expect(texts().join("\n")).toContain("Here are our cakes.");
+    // The request after "and" was answered in the new shop.
+    const [identity] = await db.select().from(telegramIdentities).where(eq(telegramIdentities.telegramUserId, 7201));
+    const asked = await db.select().from(messages).where(and(eq(messages.conversationId, identity!.activeConversationId!), eq(messages.role, "user")));
+    expect(asked.map((m) => m.content)).toContain("show me cakes");
+  });
+
+  it("has /market and /shops commands and navigation buttons in every shop", async () => {
+    await processUpdate(deps(), textUpdate(7202, "/start s_crumb-tg"));
+    expect(JSON.stringify(sent.map((s) => s.args))).toContain('"callback_data":"a:market"');
+    sent = [];
+    await processUpdate(deps(), textUpdate(7202, "/market"));
+    expect(await activeSlug(7202)).toBe("market-tg");
+    sent = [];
+    await processUpdate(deps(), textUpdate(7202, "/shops"));
+    expect(texts()[0]).toMatch(/Which shop/);
+  });
+
+  it("offers the whole market when a shop has nothing, and asks the same question there", async () => {
+    await processUpdate(deps(), textUpdate(7203, "/start s_crumb-tg"));
+    sent = [];
+    setModelOverrides({ chat: scriptedModel([{ toolCalls: [{ name: "searchProducts", input: { query: "laptop" } }] }, { text: "We only sell baked goods, sorry." }]) });
+    await processUpdate(deps(), textUpdate(7203, "Do you have a laptop?"));
+    expect(JSON.stringify(sent.map((s) => s.args))).toContain('"callback_data":"mk"');
+    sent = [];
+    setModelOverrides({ chat: scriptedModel([{ text: "Across the market I found laptops at Walrus Gadgets." }]) });
+    await processUpdate(deps(), callbackUpdate(7203, "mk"));
+    expect(await activeSlug(7203)).toBe("market-tg");
+    expect(texts().join("\n")).toContain("Across the market");
+  });
+});
