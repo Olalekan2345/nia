@@ -46,6 +46,8 @@ Nia: multi-merchant AI shopping & service assistant (web chat + Telegram) with d
 ## Walrus Market catalog expansion (2026-09-30)
 **Baseline before:** 3 demo shops (Adire Lane 8 products + 2 services, Glow Theory Studio 3 + 4, Crumb & Co. 3), 14 market products, 18 Burst photos; 108 unit tests, 17/17 Playwright.
 
+**Deployed 2026-09-30** (commits 10a14c0 + 692b05e; Neon seeded: +194 products, 8 shops). Live checks at 1440/390: 200s, 0 overflow, 0 broken images, no page errors.
+
 **Now: 208 products (634 variants) + 6 services in 8 demo shops, 7 departments.** No schema change: products still belong to a merchant; departments group shops by `merchants.businessType` (`drinks` added to `BUSINESS_TYPES`, plain text column). Carts/orders stay per shop.
 - Departments (`packages/shared/src/market-departments.ts`): Walrus Gadgets 37 (`walrus-gadgets`, electronics) · Walrus Clothes & Designers 50 (`walrus-designers` 42 + Adire Lane 8) · Food 35 (`walrus-kitchen`) · Drinks & Beverages 24 (`walrus-drinks`, non-alcoholic, test-enforced) · Cakes & Bakery 19 (Crumb & Co.) · Beauty 20 (Glow Theory Studio) · Home & Lifestyle 23 (`walrus-home`). Collection **Phones & Laptops** (`?col=phones-laptops`: 8 phones, 6 laptops, 2 tablets). All brands fictional (Arc, Tusk, Floe, Slate…), NGN demo prices, stable slugs + SKUs (`withSkus`, e.g. `WG-PHO-001`).
 - Catalog data: `packages/database/src/catalog/{kit,gadgets,designers,kitchen,drinks,home,more}.ts` (`more.ts` = extra bakery + beauty items appended to the original templates). New templates aren't offered in onboarding (fixed enum).
@@ -113,7 +115,7 @@ Verified: 108 unit/integration tests, lint, typecheck (10 packages), `next build
 - Groq free tier (7K input tokens/min **and 200K tokens/day** for qwen3.8-27b, shared by local dev and the live site — same key) makes a product question take ~45 s or return the "busy" message; the daily cap was hit on 2026-09-30 after ~40 test turns. Needs Groq Developer tier (or another provider) before real users. The dev log shows the exact limit (`Rate limit reached … tokens per day (TPD)`).
 
 ## Next steps
-0. Deploy the catalog expansion (not deployed yet): commit + push `main` (Vercel auto-deploys), then `pnpm db:seed` with `DATABASE_URL=$PRODUCTION_DATABASE_URL` and `SEED_OWNER_TELEGRAM_ID=946176405` to add the 5 new shops and photos on Neon. Optional: `PEXELS_API_KEY` → `pnpm market:images -- --provider pexels` + eye review to photograph the remaining ~59 items.
+0. Optional: `PEXELS_API_KEY` → `pnpm market:images -- --provider pexels` + eye review to photograph the remaining ~59 catalog items, then `pnpm db:seed` locally and on Neon.
 1. User: upgrade Groq (or switch provider); optionally Resend for email sign-in.
 2. Real users (≥3 × ≥10 memories), screenshots, article (docs/ARTICLE_DRAFT.md), X post, feedback form.
 
