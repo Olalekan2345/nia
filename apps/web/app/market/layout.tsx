@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Search, Sparkles, Store, UserRound } from "lucide-react";
 import { Mascot, buttonClasses } from "@nia/ui";
+import { cartLineCountForAccount } from "@nia/commerce";
+import { CartLink } from "@/components/market/cart-link";
 import { CompareTray } from "@/components/market/compare-controls";
+import { db } from "@/lib/server";
 import { MarketBackToTop } from "@/components/market/market-back-to-top";
 import { getSessionUser } from "@/lib/auth";
 import { listUserMerchants } from "@/lib/access";
@@ -15,7 +18,9 @@ export const metadata: Metadata = {
 export default async function MarketLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser();
   // Sign-in lands everyone here; people who run a shop get a way back to their dashboard.
-  const ownsShop = user ? (await listUserMerchants(user.id)).some((w) => w.merchant.kind === "shop") : false;
+  const [ownsShop, cartCount] = user
+    ? await Promise.all([listUserMerchants(user.id).then((ws) => ws.some((w) => w.merchant.kind === "shop")), cartLineCountForAccount(db(), { userId: user.id, telegramUserId: user.telegramUserId })])
+    : [false, 0];
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-30 border-b border-ink-900/[0.06] bg-surface/90 backdrop-blur-md">
@@ -50,6 +55,7 @@ export default async function MarketLayout({ children }: { children: React.React
                 <span className="hidden sm:inline">Your shops</span>
               </Link>
             ) : null}
+            <CartLink count={cartCount} />
             {user ? (
               <Link href="/market/profile" className="grid size-10 place-items-center rounded-full text-muted-foreground transition-colors duration-150 hover:bg-ink-900/[0.05] hover:text-foreground" aria-label="Your market profile">
                 <UserRound className="size-5" aria-hidden="true" />

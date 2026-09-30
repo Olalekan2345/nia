@@ -17,6 +17,7 @@ import {
   telegramIdentities,
   telegramLoginRequests,
   telegramUpdates,
+  users,
   type Conversation,
   type Customer,
   type Db,
@@ -25,6 +26,7 @@ import {
 } from "@nia/database";
 import {
   addItemToDraft,
+  cartsForAccount,
   consumeTelegramLinkToken,
   createBookingDraft,
   decideTelegramLogin,
@@ -62,7 +64,7 @@ import {
   type AskedDecision,
 } from "@nia/ai";
 import { safeEqual } from "@nia/shared/server";
-import { isAppError } from "@nia/shared";
+import { formatMoney, isAppError } from "@nia/shared";
 import type { Bot } from "./api";
 import {
   alternativesText,
@@ -355,6 +357,7 @@ async function handleCommand(c: ChatContext, text: string, message: TgMessage): 
   if (cmd === "/logout") return sendSignOutEverywhere(c);
   if (cmd === "/market") return handleNavigation(c, { target: { kind: "market" }, request: payload || null }, message.message_id);
   if (cmd === "/shops") return sendShopChooser(c);
+  if (cmd === "/cart") return sendAllCarts(c);
 
   const merchant = await activeMerchant(c);
   if (!merchant) return sendShopChooser(c);
@@ -890,9 +893,46 @@ async function addBasketToCarts(c: ChatContext, from: Merchant): Promise<void> {
     {
       html: true,
       keyboard: {
-        inline_keyboard: rows.map((r) => [
-          chatsHere(r.shop) ? { text: `Review & confirm · ${r.shop.name}`.slice(0, 60), callback_data: CB.reviewCart(r.shop.slug) } : { text: `Review at ${r.shop.name}`.slice(0, 60), url: storefrontUrl(appUrl, r.shop, "/orders") },
-        ]),
+        inline_keyboard: [
+          ...rows.map((r) => [
+            chatsHere(r.shop) ? { text: `Review & confirm · ${r.shop.name}`.slice(0, 60), callback_data: CB.reviewCart(r.shop.slug) } : { text: `Review at ${r.shop.name}`.slice(0, 60), url: storefrontUrl(appUrl, r.shop, "/orders") },
+          ]),
+          [{ text: "🛒 See my whole cart", callback_data: CB.action("cart") }],
+        ],
+      },
+    },
+  );
+}
+
+/** Every cart this Telegram user has, across all shops — the one cart, in Telegram. */
+async function sendAllCarts(c: ChatContext): Promise<void> {
+  const { db, bot, appUrl } = c.deps;
+  const [account] = await db.select({ id: users.id }).from(users).where(eq(users.telegramUserId, c.user.id)).limit(1);
+  const carts = await cartsForAccount(db, { telegramUserId: c.user.id, userId: account?.id ?? null });
+  if (!carts.length) {
+    await bot.sendMessage(c.chatId, "🛒 Your cart is empty. Tell me what you need — from any shop — and I'll find it.", { keyboard: { inline_keyboard: [[{ text: "🛍 Walrus Market", callback_data: CB.action("market") }]] } });
+    return;
+  }
+  const currency = carts[0]!.cart.currency;
+  const locale = carts[0]!.shop.locale;
+  const priced = carts.filter((x) => !x.cart.hasUnpricedItems);
+  const total = priced.reduce((s, x) => s + x.cart.total, 0);
+  const lines = carts.map(
+    (x) =>
+      `<b>${escapeHtml(x.shop.name)}</b> — ${x.cart.items.length} item${x.cart.items.length === 1 ? "" : "s"} · ${x.cart.hasUnpricedItems ? "quote" : formatMoney(x.cart.total, x.cart.currency, { locale: x.shop.locale })}${x.cart.blockers.length ? `\n  <i>${escapeHtml(x.cart.blockers.join("; "))}</i>` : " ✓ ready"}\n  ${x.cart.items.map((i) => `${i.quantity} × ${escapeHtml(i.name)}`).join(", ")}`,
+  );
+  await bot.sendMessage(
+    c.chatId,
+    [`🛒 <b>Your cart</b> · ${carts.length} shop${carts.length === 1 ? "" : "s"}`, "", ...lines, "", `<b>Total: ${formatMoney(total, currency, { locale })}${priced.length < carts.length ? " + quotes" : ""}</b>`, "<i>Each shop confirms, delivers and takes payment for its own order.</i>"].join("\n"),
+    {
+      html: true,
+      keyboard: {
+        inline_keyboard: [
+          ...carts.map((x) => [
+            x.shop.telegramEnabled ? { text: `Review & confirm · ${x.shop.name}`.slice(0, 60), callback_data: CB.reviewCart(x.shop.slug) } : { text: `Review at ${x.shop.name}`.slice(0, 60), url: storefrontUrl(appUrl, x.shop, "/orders") },
+          ]),
+          [{ text: "Open cart on the web", url: `${appUrl}/market/cart` }],
+        ],
       },
     },
   );
@@ -979,6 +1019,7 @@ async function handleCallback(deps: TelegramDeps, q: TgCallbackQuery): Promise<v
         if (arg === "memory") return sendMemorySummary(c, merchant);
         if (arg === "market") return handleNavigation(c, { target: { kind: "market" }, request: null });
         if (arg === "shops") return sendShopChooser(c);
+        if (arg === "cart") return sendAllCarts(c);
         if (prompts[arg]) return runTurn(c, merchant, prompts[arg]!);
         return;
       }

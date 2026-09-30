@@ -222,3 +222,44 @@ describe("price history", () => {
     expect((await productPriceHistoryFor(db, { merchantId: shopIds.get("gadgets")!, productId: juice.id })).changes).toEqual([]);
   });
 });
+
+describe("one cart across every shop", () => {
+  it("gathers only this account's carts, counts lines, and confirms orders only for the owner", async () => {
+    const { createUser } = await import("@nia/database/testing");
+    const { resolveWebCustomer, resolveTelegramCustomer, addItemToDraft, setDraftFulfillment, submitDraft, accountCustomerIds, cartsForAccount, cartLineCountForAccount, placedOrdersForAccount } = await import("../src");
+    const me = await createUser(db);
+    const other = await createUser(db);
+    const drinks = shopIds.get("drinks")!;
+    const bakery = shopIds.get("bakery")!;
+    const juice = await productBySlug("drinks", "apple-juice");
+    const [litre] = await db.select().from(productVariants).where(and(eq(productVariants.productId, juice.id), eq(productVariants.name, "1 L")));
+    const cake = await productBySlug("bakery", "chocolate-fudge-cake");
+    const [cakeV] = await db.select().from(productVariants).where(eq(productVariants.productId, cake.id)).limit(1);
+
+    const meDrinks = await resolveWebCustomer(db, { merchantId: drinks, userId: me.id, email: me.email });
+    const meBakery = await resolveWebCustomer(db, { merchantId: bakery, userId: me.id, email: me.email });
+    await addItemToDraft(db, { merchantId: drinks, customerId: meDrinks.id, productId: juice.id, variantId: litre!.id, quantity: 2, channel: "web" });
+    await addItemToDraft(db, { merchantId: bakery, customerId: meBakery.id, productId: cake.id, variantId: cakeV!.id, quantity: 1, channel: "web" });
+    const otherDrinks = await resolveWebCustomer(db, { merchantId: drinks, userId: other.id, email: other.email });
+    await addItemToDraft(db, { merchantId: drinks, customerId: otherDrinks.id, productId: juice.id, variantId: litre!.id, quantity: 5, channel: "web" });
+
+    const carts = await cartsForAccount(db, { userId: me.id });
+    expect(carts.map((c) => c.shop.slug).sort()).toEqual(["crumb-and-co", "walrus-drinks"]);
+    expect(carts.find((c) => c.shop.slug === "walrus-drinks")!.cart.items[0]!.quantity).toBe(2); // not the other shopper's 5
+    expect(await cartLineCountForAccount(db, { userId: me.id })).toBe(2);
+    expect(await cartsForAccount(db, { userId: (await createUser(db)).id })).toEqual([]);
+
+    // A Telegram-only cart shows up for that Telegram user.
+    const tg = await resolveTelegramCustomer(db, drinks, { telegramUserId: 99001, displayName: "Tolu", username: null });
+    expect(await accountCustomerIds(db, { telegramUserId: 99001 })).toEqual([tg.id]);
+
+    // Confirmation panel: only this account's placed orders, never someone else's.
+    await setDraftFulfillment(db, { merchantId: drinks, customerId: otherDrinks.id, method: "pickup", channel: "web" });
+    const theirs = await submitDraft(db, { merchantId: drinks, customerId: otherDrinks.id });
+    await setDraftFulfillment(db, { merchantId: drinks, customerId: meDrinks.id, method: "pickup", channel: "web" });
+    const mine = await submitDraft(db, { merchantId: drinks, customerId: meDrinks.id });
+    const placed = await placedOrdersForAccount(db, { userId: me.id }, [mine.id, theirs.id]);
+    expect(placed.map((o) => o.id)).toEqual([mine.id]);
+    expect((await cartsForAccount(db, { userId: me.id })).map((c) => c.shop.slug)).toEqual(["crumb-and-co"]); // confirmed cart left the list
+  });
+});

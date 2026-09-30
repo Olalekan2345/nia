@@ -17,6 +17,9 @@ export function CartEditor({
   delivery,
   pickup,
   pickupAddress,
+  title = "Your cart",
+  placedHref,
+  header,
 }: {
   slug: string;
   cart: OrderSummaryData;
@@ -25,6 +28,12 @@ export function CartEditor({
   delivery: boolean;
   pickup: boolean;
   pickupAddress: string | null;
+  /** Heading (the shop's name in the all-shops cart). */
+  title?: string;
+  /** Where to go once confirmed; "{id}" is replaced by the new order's id. Default: this shop's orders page. */
+  placedHref?: string;
+  /** Optional leading element in the header (e.g. the shop's logo). */
+  header?: React.ReactNode;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -55,10 +64,11 @@ export function CartEditor({
 
   const total = cart.hasUnpricedItems ? "To be confirmed" : formatMoney(cart.total, cart.currency, { locale });
   return (
-    <section aria-labelledby="cart-title" className="rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft">
-      <header className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h2 id="cart-title" className="font-bold">
-          Your cart
+    <section aria-labelledby={`cart-title-${cart.id}`} className="rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft">
+      <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+        <h2 id={`cart-title-${cart.id}`} className="flex min-w-0 items-center gap-2.5 font-bold">
+          {header}
+          <span className="truncate">{title}</span>
         </h2>
         <span className="text-sm text-muted-foreground">
           {cart.items.length} item{cart.items.length === 1 ? "" : "s"}
@@ -157,7 +167,7 @@ export function CartEditor({
               if (res.ok) {
                 setPlaced({ summary: res.summary, payment: res.payment });
                 // The cart disappears once the order exists; the page keeps showing the confirmation.
-                router.replace(`/s/${slug}/orders?placed=${res.summary.id}`, { scroll: false });
+                router.replace(placedHref ? placedHref.replace("{id}", res.summary.id) : `/s/${slug}/orders?placed=${res.summary.id}`, { scroll: false });
               } else {
                 setError(res.error);
                 router.refresh();

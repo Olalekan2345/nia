@@ -35,7 +35,7 @@ export const CB = {
   repeat: (orderId: string) => `rp:${orderId}`,
   consentYes: (candidateId: string) => `my:${candidateId}`,
   consentNo: (candidateId: string) => `mn:${candidateId}`,
-  action: (name: "browse" | "book" | "last" | "link" | "memory" | "change_qty" | "similar" | "cheaper" | "market" | "shops") => `a:${name}`,
+  action: (name: "browse" | "book" | "last" | "link" | "memory" | "change_qty" | "similar" | "cheaper" | "market" | "shops" | "cart") => `a:${name}`,
   /** Ask the last question again across every shop in Walrus Market. */
   marketSearch: () => "mk",
   shop: (slug: string) => `s:${slug.slice(0, 60)}`,

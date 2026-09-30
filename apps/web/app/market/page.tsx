@@ -8,6 +8,7 @@ import { ProductVisual } from "@/components/commerce/product-visual";
 import { CompareToggle } from "@/components/market/compare-controls";
 import { DepartmentCard } from "@/components/market/department-card";
 import { MarketProductCard, toMarketCard } from "@/components/market/market-card";
+import { QuickAdd } from "@/components/market/quick-add";
 import { Rail, RailItem } from "@/components/market/rail";
 import { MerchantMark } from "@/components/store/merchant-mark";
 import { forYou, greeting, loadMarket, marketMemories } from "@/lib/market";
@@ -32,13 +33,24 @@ interface Search {
 const PAGE_SIZE = 24;
 const askHref = (text: string) => `/market/nia?q=${encodeURIComponent(text)}&send=1`;
 
-function ProductCard({ p, locale }: { p: MarketProduct; locale: string }) {
+/** Rail cards are narrow: Add and Compare side by side. */
+function RailActions({ p, signedIn }: { p: MarketProduct; signedIn: boolean }) {
+  return (
+    <>
+      <QuickAdd shopSlug={p.shop.slug} productId={p.id} url={p.url} hasOptions={p.variants.length > 0} available={p.available} signedIn={signedIn} />
+      <CompareToggle productId={p.id} className="flex-1 justify-center" />
+    </>
+  );
+}
+
+function ProductCard({ p, locale, signedIn }: { p: MarketProduct; locale: string; signedIn: boolean }) {
   return (
     <MarketProductCard
       product={toMarketCard(p)}
       locale={locale}
       actions={
         <>
+          <QuickAdd shopSlug={p.shop.slug} productId={p.id} url={p.url} hasOptions={p.variants.length > 0} available={p.available} signedIn={signedIn} className="w-full basis-full" />
           <CompareToggle productId={p.id} className="flex-1 justify-center" />
           <Link href={askHref(`Help me decide about the ${p.name} from ${p.shop.name}`)} className={buttonClasses({ variant: "ghost", size: "sm", className: "flex-1" })}>
             Ask Nia
@@ -61,6 +73,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
   const home = tab === "all" && !browsing;
 
   const sf = await loadMarket();
+  const signedIn = Boolean(sf?.user);
   const locale = sf?.merchant.locale ?? "en-NG";
   const currency = sf?.merchant.currency ?? "NGN";
   const timeZone = sf?.merchant.timezone ?? "Africa/Lagos";
@@ -310,7 +323,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
                 <Rail key={rail.key} id={`rail-${rail.key}`} title={rail.title} note={rail.note} badge={rail.tag ? "Curated" : undefined}>
                   {items.map((p) => (
                     <RailItem key={p.id}>
-                      <MarketProductCard product={toMarketCard(p)} locale={locale} actions={<CompareToggle productId={p.id} className="flex-1 justify-center" />} />
+                      <MarketProductCard product={toMarketCard(p)} locale={locale} actions={<RailActions p={p} signedIn={signedIn} />} />
                     </RailItem>
                   ))}
                 </Rail>
@@ -324,7 +337,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
               <Rail key={d.key} id={`dept-${d.key}`} title={d.name} note={d.blurb} seeAll={{ href: link({ dept: d.key }, false), label: `See all ${d.count}` }}>
                 {d.products.map((p) => (
                   <RailItem key={p.id}>
-                    <MarketProductCard product={toMarketCard(p)} locale={locale} actions={<CompareToggle productId={p.id} className="flex-1 justify-center" />} />
+                    <MarketProductCard product={toMarketCard(p)} locale={locale} actions={<RailActions p={p} signedIn={signedIn} />} />
                   </RailItem>
                 ))}
               </Rail>
@@ -426,7 +439,7 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
               <ul className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
                 {products.map((p) => (
                   <li key={p.id}>
-                    <ProductCard p={p} locale={locale} />
+                    <ProductCard p={p} locale={locale} signedIn={signedIn} />
                   </li>
                 ))}
               </ul>

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Badge } from "@nia/ui";
-import { getDraft, orderSummary } from "@nia/commerce";
+import { cartLineCountForAccount, getDraft, orderSummary } from "@nia/commerce";
+import { CartLink } from "@/components/market/cart-link";
 import { StoreBottomNav, StoreTopNav } from "@/components/store/store-nav";
 import { MerchantMark } from "@/components/store/merchant-mark";
 import { getStorefront } from "@/lib/storefront";
@@ -16,7 +17,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function StoreLayout({ children, params }: { children: React.ReactNode; params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const { merchant, customer, isMember } = await getStorefront(slug);
+  const { merchant, customer, isMember, user } = await getStorefront(slug);
   // The Walrus Market record is not a storefront.
   if (merchant.kind === "market") redirect("/market");
   let cartCount = 0;
@@ -24,6 +25,8 @@ export default async function StoreLayout({ children, params }: { children: Reac
     const draft = await getDraft(db(), merchant.id, customer.id);
     if (draft) cartCount = (await orderSummary(db(), merchant.id, draft.id)).items.length;
   }
+  // The one cart across every shop (this shop's items included).
+  const allCartCount = user ? await cartLineCountForAccount(db(), { userId: user.id, telegramUserId: user.telegramUserId }) : 0;
 
   return (
     <div className="min-h-dvh" style={{ ["--merchant" as string]: merchant.accentColor }}>
@@ -44,6 +47,7 @@ export default async function StoreLayout({ children, params }: { children: Reac
               </Badge>
             ) : null}
             {merchant.status !== "live" && isMember ? <Badge tone="warning">Preview</Badge> : null}
+            <CartLink count={allCartCount} />
           </div>
         </div>
       </header>

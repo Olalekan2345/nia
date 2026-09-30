@@ -151,11 +151,9 @@ export function BasketCard({ basket, actions, latest }: { basket: BasketView; ac
             <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-success">
               <Check className="size-4" aria-hidden="true" /> {errors.length ? "Added what was still available" : "Added to your cart" + (shops.length > 1 ? "s" : "")}
             </p>
-            {shops.map((s) => (
-              <Link key={s.shop.slug} href={`/s/${s.shop.slug}/orders`} className={buttonClasses({ size: "sm", variant: "secondary" })}>
-                Review cart{shops.length > 1 ? ` · ${s.shop.name}` : ""}
-              </Link>
-            ))}
+            <Link href="/market/cart" className={buttonClasses({ size: "sm", variant: "secondary" })}>
+              Review & confirm your cart
+            </Link>
           </>
         ) : actions.signedIn ? (
           <Button size="sm" loading={state === "adding"} disabled={!basket.lines.length} onClick={addAll}>

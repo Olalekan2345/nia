@@ -392,3 +392,24 @@ describe("moving between shops and the market on Telegram", () => {
     expect(texts().join("\n")).toContain("Across the market");
   });
 });
+
+describe("one cart on Telegram", () => {
+  it("/cart lists every shop's cart with a total and a way to confirm each", async () => {
+    // 7103 added a basket to two shops' carts in "Walrus Market on Telegram".
+    await processUpdate(deps(), textUpdate(7103, "/cart"));
+    const msg = texts().join("\n");
+    expect(msg).toMatch(/Your cart<\/b> · 2 shops/);
+    expect(msg).toContain("Walrus Drinks");
+    expect(msg).toContain("Crumb &amp; Co.");
+    expect(msg).toMatch(/Total: ₦/);
+    const kb = JSON.stringify(sent.map((s) => s.args));
+    expect(kb).toContain("cs:walrus-drinks-tg");
+    expect(kb).toContain("cs:crumb-tg");
+    expect(kb).toContain("https://nia.example/market/cart");
+  });
+
+  it("an empty cart says so and points to the market", async () => {
+    await processUpdate(deps(), textUpdate(7301, "/cart"));
+    expect(texts()[0]).toMatch(/cart is empty/);
+  });
+});

@@ -140,6 +140,37 @@ test("new product pages work end to end: variants, price, and carts in two shops
   await page.goto("/s/walrus-drinks/orders");
   await expect(page.getByText("100% Orange Juice").first()).toBeVisible();
   await expect(page.getByText("Arc A15 Smartphone")).toHaveCount(0);
+
+  // …and one cart shows everything, from every shop, ready to confirm together.
+  await expect(page.getByRole("link", { name: "Your cart, 2 items" })).toBeVisible();
+  await page.goto("/market/cart");
+  await expect(page.getByRole("heading", { level: 1, name: "Your cart" })).toBeVisible();
+  await expect(page.getByText("2 items from 2 shops")).toBeVisible();
+  const gadgets = page.locator("section", { has: page.getByRole("heading", { name: "Walrus Gadgets" }) });
+  const drinks = page.locator("section", { has: page.getByRole("heading", { name: "Walrus Drinks" }) });
+  await expect(gadgets).toContainText("Arc A15 Smartphone");
+  await expect(drinks).toContainText("100% Orange Juice");
+  await gadgets.getByRole("button", { name: "Pickup" }).click();
+  await expect(gadgets.getByRole("button", { name: "Pickup" })).toHaveAttribute("aria-pressed", "true");
+  await drinks.getByRole("button", { name: "Pickup" }).click();
+  await expect(drinks.getByRole("button", { name: "Pickup" })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Confirm all 2 orders" }).click();
+  await expect(page.getByText(/Order #\d+ placed · Walrus Gadgets/)).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByText(/Order #\d+ placed · Walrus Drinks/)).toBeVisible();
+  await expect(page.getByText("Your cart is empty")).toHaveCount(0);
+});
+
+test("market cards add straight to the one cart", async ({ page }) => {
+  await page.goto("/market/signin");
+  await completeSignIn(page, uniqueEmail("quickadd"));
+  await page.goto("/market?q=desk organiser");
+  const card = page.locator("article").filter({ hasText: "Desk Organiser" }).first();
+  await card.getByRole("button", { name: "Add" }).click();
+  await expect(card.getByRole("link", { name: "In cart" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Your cart, 1 item/ })).toBeVisible();
+  // Items with options go to their page to choose.
+  await page.goto("/market?q=arc a15");
+  await expect(page.locator("article").filter({ hasText: "Arc A15 Smartphone" }).first().getByRole("link", { name: "Choose options" })).toBeVisible();
 });
 
 test("comparison shows real specs and says when one isn't listed", async ({ page }) => {
