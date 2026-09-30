@@ -37,6 +37,25 @@ test("market home: departments, the Phones & Laptops collection, Popular Mart an
   await expect(page.getByRole("link", { name: /See all \d+/ }).first()).toBeVisible();
 });
 
+test("Nia's back-to-top button works in the market, above the compare tray", async ({ page }) => {
+  await page.goto("/market");
+  const backToTop = page.getByRole("button", { name: "Back to the top" });
+  await expect(backToTop).toHaveCount(0);
+  await page.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight / 2, behavior: "instant" }));
+  await expect(backToTop).toBeVisible();
+  // Opening the compare tray lifts her above it.
+  await page.locator("article").getByRole("button", { name: "Compare" }).first().click();
+  const tray = page.getByRole("region", { name: "Compare selection" });
+  await expect(tray).toBeVisible();
+  await expect.poll(async () => {
+    const [b, t] = await Promise.all([backToTop.boundingBox(), tray.locator("> div").boundingBox()]);
+    return Boolean(b && t && b.y + b.height <= t.y);
+  }).toBe(true);
+  await backToTop.click();
+  await expect.poll(() => page.evaluate(() => window.scrollY), { timeout: 10_000 }).toBeLessThan(5);
+  await expect(page.getByRole("heading", { level: 1, name: /Welcome to Walrus Market/ })).toBeFocused();
+});
+
 test("department page lists its categories and pages through products", async ({ page }) => {
   await page.goto("/market");
   await page.locator('a[href="/market?dept=gadgets"]').first().click();

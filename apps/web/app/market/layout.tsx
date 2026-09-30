@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Search, Sparkles, Store, UserRound } from "lucide-react";
 import { Mascot, buttonClasses } from "@nia/ui";
 import { CompareTray } from "@/components/market/compare-controls";
+import { MarketBackToTop } from "@/components/market/market-back-to-top";
 import { getSessionUser } from "@/lib/auth";
 import { listUserMerchants } from "@/lib/access";
 
@@ -78,6 +79,7 @@ export default async function MarketLayout({ children }: { children: React.React
       </header>
       {children}
       <CompareTray />
+      <MarketBackToTop />
       <footer className="border-t border-ink-900/[0.06] bg-surface py-10 text-sm text-muted-foreground">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 md:px-6">
           <p>Shops set their own prices, stock and delivery. Demo shops are fictional businesses for trying Nia.</p>

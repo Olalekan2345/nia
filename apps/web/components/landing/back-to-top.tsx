@@ -25,9 +25,11 @@ const SHELL: Variants = {
  * Nia pointing the way back up: her raised peace-sign paw, a ring that fills
  * as the page is read, and a nudge (hop + speech bubble) when she first shows
  * up and again at the end of the page. Clicking scrolls to the top and moves
- * focus to the page heading, so keyboard users land there too.
+ * focus to the page heading (`targetId`, else the page's first `main h1`), so
+ * keyboard users land there too. `lift` raises her above a bottom bar (e.g.
+ * Walrus Market's compare tray) while one is showing.
  */
-export function BackToTop({ targetId }: { targetId: string }) {
+export function BackToTop({ targetId, lift = false }: { targetId?: string; lift?: boolean }) {
   const reduce = usePrefersReducedMotion();
   const { scrollY, scrollYProgress } = useScroll();
   const ring = useRange(scrollYProgress, [0, 1], [0, 1]);
@@ -72,7 +74,11 @@ export function BackToTop({ targetId }: { targetId: string }) {
 
   const goTop = () => {
     setLaunched(true);
-    document.getElementById(targetId)?.focus({ preventScroll: true });
+    const heading = (targetId ? document.getElementById(targetId) : null) ?? document.querySelector<HTMLElement>("main h1");
+    if (heading) {
+      if (!heading.hasAttribute("tabindex")) heading.setAttribute("tabindex", "-1");
+      heading.focus({ preventScroll: true });
+    }
     window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
   };
 
@@ -86,7 +92,11 @@ export function BackToTop({ targetId }: { targetId: string }) {
           initial="hidden"
           animate="shown"
           exit="gone"
-          className="fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex items-center gap-3 sm:right-6 sm:bottom-6"
+          className={
+            lift
+              ? "fixed right-4 bottom-[calc(max(1rem,env(safe-area-inset-bottom))_+_4.75rem)] z-40 flex items-center gap-3 transition-[bottom] duration-300 motion-reduce:transition-none sm:right-6 sm:bottom-[6.25rem]"
+              : "fixed right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex items-center gap-3 transition-[bottom] duration-300 motion-reduce:transition-none sm:right-6 sm:bottom-6"
+          }
         >
           <AnimatePresence mode="wait">
             {bubble ? (
