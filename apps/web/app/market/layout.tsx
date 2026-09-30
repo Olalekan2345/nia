@@ -46,8 +46,10 @@ export default async function MarketLayout({ children }: { children: React.React
             />
           </form>
           <nav className="ml-auto flex items-center gap-1.5 md:ml-0" aria-label="Market">
-            <Link href="/market/nia" className={buttonClasses({ size: "sm" })}>
-              <Sparkles className="size-4" aria-hidden="true" /> Ask Nia
+            <Link href="/market/nia" className={buttonClasses({ size: "sm", className: "px-3 sm:px-4" })} aria-label="Ask Nia">
+              <Sparkles className="size-4" aria-hidden="true" />
+              {/* Icon-only on small phones so the cart fits beside it. */}
+              <span className="hidden min-[400px]:inline">Ask Nia</span>
             </Link>
             {ownsShop ? (
               <Link href="/dashboard" className={buttonClasses({ variant: "ghost", size: "sm", className: "px-2.5 sm:px-4" })} aria-label="Your shops">
