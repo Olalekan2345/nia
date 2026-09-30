@@ -31,7 +31,7 @@ export default defineConfig({
   use: { baseURL, trace: "retain-on-failure", screenshot: "only-on-failure" },
   projects: [
     { name: "mobile", use: { ...devices["Pixel 7"] } },
-    { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } }, testMatch: /dashboard|smoke/ },
+    { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } }, testMatch: /dashboard|smoke|market-catalog/ },
   ],
   webServer: {
     command: `pnpm db:e2e && pnpm --filter @nia/web exec next dev --port ${PORT}`,

@@ -8,6 +8,7 @@ import { ProductVisual } from "@/components/commerce/product-visual";
 import { ProductPurchase } from "@/components/store/product-purchase";
 import { getStorefront } from "@/lib/storefront";
 import { db } from "@/lib/server";
+import { stockCredit } from "@/lib/stock-credits";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string; productSlug: string }> }): Promise<Metadata> {
   const { slug, productSlug } = await params;
@@ -22,6 +23,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const product = await getProduct(db(), merchant.id, productSlug);
   if (!product) notFound();
   const attrs = Object.entries(product.attributes);
+  const credit = stockCredit(product.image);
 
   return (
     <main className="mx-auto max-w-5xl px-4 pt-4 md:px-6 md:pt-8">
@@ -31,13 +33,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       <div className="mt-2 grid gap-8 md:grid-cols-2">
         <figure>
           <ProductVisual name={product.name} category={product.category} colours={product.variants.map((v) => v.options.colour ?? v.name)} image={product.image} rounded="rounded-3xl" />
-          {product.image?.startsWith("/stock/") ? (
+          {credit ? (
             <figcaption className="mt-2 text-xs text-muted-foreground">
-              Illustrative photo from{" "}
-              <a href="https://burst.shopify.com" target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">
-                Burst
-              </a>{" "}
-              (free stock).
+              <a href={credit.href} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">
+                {credit.text}
+              </a>
             </figcaption>
           ) : null}
         </figure>

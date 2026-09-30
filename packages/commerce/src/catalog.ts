@@ -35,11 +35,15 @@ export function tokenize(query: string): string[] {
         .toLowerCase()
         .replace(/[^\p{L}\p{N}\s-]/gu, " ")
         .split(/\s+/)
-        .map((t) => t.replace(/(?:ies)$/, "y").replace(/(?<=[a-z]{3})s$/, ""))
+        // Plurals to singular: bodies → body, dresses → dress, watches → watch, shoes → shoe (never dress → dres).
+        .map((t) => t.replace(/(?:ies)$/, "y").replace(/(ss|sh|ch|x|z)es$/, "$1").replace(/(?<=[a-z]{3})(?<!s)s$/, ""))
         .filter((t) => t.length >= 2 && !STOPWORDS.has(t)),
     ),
   ].slice(0, 12);
 }
+
+/** Plain colour words: "black dresses" is about dresses, so colour alone never qualifies a product. */
+const COLOUR_WORDS = new Set(["black", "white", "red", "blue", "green", "yellow", "pink", "purple", "orange", "brown", "grey", "gray", "navy", "gold", "silver", "cream", "ivory", "beige", "burgundy", "wine", "emerald", "indigo", "lavender", "lilac", "charcoal", "champagne", "terracotta", "teal", "olive"]);
 
 function expandColour(term: string): string[] {
   const key = term.toLowerCase().replace(/colou?rs?/, "").trim();
@@ -108,6 +112,12 @@ export interface ProductSearchInput {
   size?: string;
   inStockOnly?: boolean;
   limit?: number;
+  /** Any of these categories (case-insensitive) — e.g. a market collection. */
+  categories?: string[];
+  /** Products carrying any of these tags (curated collections). */
+  tags?: string[];
+  /** Skip this many ranked results (paging). */
+  offset?: number;
 }
 
 /** One shop (its id) or several (Walrus Market passes every live shop). */
@@ -121,6 +131,11 @@ export async function searchProducts(db: Db, merchantId: string | string[], inpu
     conditions.push(inArray(products.kind, input.kinds.filter((k): k is Product["kind"] => ["PRODUCT", "CUSTOM_ORDER", "PACKAGE"].includes(k))));
   }
   if (input.category) conditions.push(sql`lower(${products.category}) = ${input.category.toLowerCase()}`);
+  if (input.categories?.length) {
+    conditions.push(or(...input.categories.map((c) => sql`lower(${products.category}) = ${c.toLowerCase()}`))!);
+  }
+  // Bound parameters only: one jsonb_exists() per tag.
+  if (input.tags?.length) conditions.push(or(...input.tags.map((t) => sql`jsonb_exists(${products.tags}, ${t})`))!);
 
   const haystack = sql`lower(${products.name} || ' ' || coalesce(${products.description}, '') || ' ' || coalesce(${products.category}, '') || ' ' || ${products.tags}::text || ' ' || ${products.attributes}::text)`;
   if (tokens.length) {
@@ -131,7 +146,7 @@ export async function searchProducts(db: Db, merchantId: string | string[], inpu
     conditions.push(or(...tokenMatches)!);
   }
 
-  const rows = await db.select().from(products).where(and(...conditions)).orderBy(asc(products.name)).limit(200);
+  const rows = await db.select().from(products).where(and(...conditions)).orderBy(asc(products.name)).limit(500);
   if (rows.length === 0) return [];
   const variants = await db
     .select()
@@ -142,10 +157,16 @@ export async function searchProducts(db: Db, merchantId: string | string[], inpu
 
   const colourTerms = input.colour ? expandColour(input.colour) : [];
   const size = input.size?.toLowerCase().trim();
+  // With both colour and other words, a product must match one of the other words.
+  const subjectTokens = tokens.some((t) => COLOUR_WORDS.has(t)) ? tokens.filter((t) => !COLOUR_WORDS.has(t)) : [];
 
   const scored: { card: ProductCardData; score: number }[] = [];
   for (const p of rows) {
     const vs = byProduct.get(p.id) ?? [];
+    if (subjectTokens.length) {
+      const hay = `${p.name} ${p.description ?? ""} ${p.category ?? ""} ${p.tags.join(" ")} ${JSON.stringify(p.attributes)}`.toLowerCase();
+      if (!subjectTokens.some((t) => hay.includes(t))) continue;
+    }
     let matched: ProductVariant[] | undefined;
     if (colourTerms.length || size) {
       matched = vs.filter((v) => {
@@ -166,9 +187,13 @@ export async function searchProducts(db: Db, merchantId: string | string[], inpu
 
     let score = 0;
     const name = p.name.toLowerCase();
+    // A word that names the category says what the product *is* ("laptop" → Laptops), which
+    // outranks accessories that merely mention it ("Laptop Stand"). Headphones ≠ "phone".
+    const categoryWords = tokenize(p.category ?? "");
     for (const t of tokens) {
       if (name.includes(t)) score += 3;
       if ((p.category ?? "").toLowerCase().includes(t)) score += 2;
+      if (categoryWords.includes(t)) score += 3;
       if (p.tags.some((tag) => tag.toLowerCase().includes(t))) score += 2;
       if (vs.some((v) => v.name.toLowerCase().includes(t))) score += 2;
       if ((p.description ?? "").toLowerCase().includes(t)) score += 1;
@@ -176,7 +201,8 @@ export async function searchProducts(db: Db, merchantId: string | string[], inpu
     if (card.available) score += 0.5;
     scored.push({ card, score });
   }
-  return scored.sort((a, b) => b.score - a.score).slice(0, limit).map((s) => s.card);
+  const offset = Math.max(0, input.offset ?? 0);
+  return scored.sort((a, b) => b.score - a.score).slice(offset, offset + limit).map((s) => s.card);
 }
 
 export async function getProduct(db: Db, merchantId: string, idOrSlug: string): Promise<ProductCardData | null> {

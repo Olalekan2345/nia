@@ -64,16 +64,19 @@ test("telegram webhook rejects a missing or wrong secret", async ({ request }) =
 test("Walrus Market: browse every shop, search, compare side by side", async ({ page }) => {
   await page.goto("/market");
   await expect(page.getByRole("heading", { name: /Welcome to Walrus Market/ })).toBeVisible();
-  // Products from different shops, with real photos.
-  await expect(page.getByText("Classic Ankara Wax Print").first()).toBeVisible();
-  await expect(page.getByText("Country Sourdough Loaf").first()).toBeVisible();
+  // Products from different shops, with real photos. (Home rails rotate between shops, and e2e runs
+  // add test shops, so specific products are checked on stable filtered pages.)
+  await expect(page.locator('section[aria-labelledby="dept-bakery"]')).toContainText("Crumb & Co.");
+  await expect(page.locator('section[aria-labelledby="dept-fashion"]')).toContainText("Adire Lane");
   await expect(page.locator('img[src^="/stock/"]:visible').first()).toBeVisible();
+  await page.goto("/market?q=sourdough");
+  await expect(page.getByText("Country Sourdough Loaf").first()).toBeVisible();
 
   await page.goto("/market?q=cake");
   await expect(page.getByRole("heading", { name: /Results for “cake”/ })).toBeVisible();
   await expect(page.getByText("Celebration Cake").first()).toBeVisible();
 
-  await page.goto("/market");
+  await page.goto("/market?shop=adire-lane");
   const cards = page.locator("article").filter({ has: page.getByRole("button", { name: "Compare" }) });
   await cards.filter({ hasText: "Classic Ankara Wax Print" }).getByRole("button", { name: "Compare" }).click();
   await cards.filter({ hasText: "Corded French Lace" }).getByRole("button", { name: "Compare" }).click();

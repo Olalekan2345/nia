@@ -3,7 +3,8 @@ import { CalendarClock, Clock, MapPin, Store, Truck } from "lucide-react";
 import { Badge, cn, type BadgeTone } from "@nia/ui";
 import { formatMoney, formatPriceRange, INVENTORY_LABELS, type InventoryStatus } from "@nia/shared";
 import type { BookingSummaryData, OrderSummaryData, ProductCardData, ServiceCardData } from "@nia/commerce";
-import { ProductVisual, colourHex } from "./product-visual";
+import { colourHex } from "./colour";
+import { ProductVisual } from "./product-visual";
 
 const AVAIL_TONE: Record<InventoryStatus, BadgeTone> = {
   in_stock: "success",

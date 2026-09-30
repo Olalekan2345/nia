@@ -4,19 +4,20 @@
  * and product here is invented.
  */
 import { and, eq, sql } from "drizzle-orm";
-import type { DeliveryArea, ServiceAvailability, WeeklyHours } from "@nia/shared";
 import type { Db } from "./client";
-import { merchantKnowledge, merchants, products, productVariants, services, type MerchantFulfillment } from "./schema";
+import { merchantKnowledge, merchants, products, productVariants, services } from "./schema";
+import { ngn, weekdayHours, type DemoTemplateBase, type VariantSeed } from "./catalog/kit";
+import { GADGETS } from "./catalog/gadgets";
+import { DESIGNERS } from "./catalog/designers";
+import { KITCHEN } from "./catalog/kitchen";
+import { DRINKS } from "./catalog/drinks";
+import { HOME } from "./catalog/home";
+import { BAKERY_MORE, BEAUTY_MORE } from "./catalog/more";
+import { CATALOG_PHOTOS } from "./catalog/photos";
 
-export type DemoTemplateKey = "fabric" | "beauty" | "bakery";
+/** The original demo shops, then the Walrus Market department shops. */
+export type DemoTemplateKey = "fabric" | "beauty" | "bakery" | "gadgets" | "designers" | "kitchen" | "drinks" | "home";
 
-interface VariantSeed {
-  name: string;
-  options: Record<string, string>;
-  price?: number | null;
-  inventoryStatus?: "in_stock" | "low_stock" | "out_of_stock" | "made_to_order" | "unknown";
-  stockQuantity?: number | null;
-}
 
 /**
  * Free stock photos (Burst — free for commercial use) for demo items, served from
@@ -43,73 +44,15 @@ const STOCK_PHOTOS = new Set([
   "cinnamon-rolls",
   "celebration-cake",
 ]);
-const stockPhotos = (slug: string): string[] => (STOCK_PHOTOS.has(slug) ? [`/stock/${slug}.jpg`] : []);
+/** Photo for a demo item: an imported catalog photo, else an original Burst photo, else none (generated artwork). */
+const stockPhotos = (slug: string): string[] => (CATALOG_PHOTOS[slug] ? [CATALOG_PHOTOS[slug]] : STOCK_PHOTOS.has(slug) ? [`/stock/${slug}.jpg`] : []);
 
-interface ProductSeed {
-  kind?: "PRODUCT" | "CUSTOM_ORDER" | "PACKAGE";
-  name: string;
-  slug: string;
-  description: string;
-  category: string;
-  sku?: string;
-  price: number | null;
-  unit?: string;
-  attributes?: Record<string, string | string[]>;
-  inventoryStatus?: "in_stock" | "low_stock" | "out_of_stock" | "made_to_order" | "unknown";
-  stockQuantity?: number | null;
-  tags?: string[];
-  variants?: VariantSeed[];
-}
 
-interface ServiceSeed {
-  kind?: "SERVICE" | "APPOINTMENT";
-  name: string;
-  slug: string;
-  description: string;
-  category: string;
-  priceMin: number | null;
-  priceMax?: number | null;
-  durationMinutes: number | null;
-  locationType?: "in_store" | "at_customer" | "online";
-  depositAmount?: number | null;
-  bookingRequirements?: string;
-  options?: { name: string; priceDelta?: number | null; durationDelta?: number | null }[];
-  availability: ServiceAvailability;
-  tags?: string[];
-}
 
-interface KnowledgeSeed {
-  category: string;
-  title: string;
-  body: string;
-}
 
-export interface DemoTemplate {
+export interface DemoTemplate extends DemoTemplateBase {
   key: DemoTemplateKey;
-  label: string;
-  businessType: string;
-  name: string;
-  slug: string;
-  tagline: string;
-  description: string;
-  accentColor: string;
-  welcomeMessage: string;
-  city: string;
-  country: string;
-  fulfillment: MerchantFulfillment;
-  deliveryAreas: DeliveryArea[];
-  openingHours: WeeklyHours;
-  paymentInstructions: string;
-  products: ProductSeed[];
-  services: ServiceSeed[];
-  knowledge: KnowledgeSeed[];
 }
-
-/** ₦ → kobo */
-const ngn = (naira: number) => naira * 100;
-
-const weekdayHours = (open: string, close: string, days: (keyof WeeklyHours)[]): WeeklyHours =>
-  Object.fromEntries(days.map((d) => [d, [[open, close]]])) as WeeklyHours;
 
 const sizes = ["S", "M", "L", "XL"] as const;
 
@@ -188,6 +131,7 @@ export const DEMO_TEMPLATES: Record<DemoTemplateKey, DemoTemplate> = {
         attributes: { material: "cotton", technique: "tie-and-dye resist", width: "44 in" },
         inventoryStatus: "in_stock",
         tags: ["adire", "indigo", "hand-dyed", "cotton"],
+        photoQuery: ["indigo fabric", "indigo dyed textile", "blue fabric texture"],
         variants: [
           { name: "Deep Indigo", options: { colour: "Deep Indigo" }, inventoryStatus: "in_stock", stockQuantity: 40 },
           { name: "Sky Indigo", options: { colour: "Sky Indigo" }, inventoryStatus: "in_stock", stockQuantity: 22 },
@@ -416,11 +360,13 @@ export const DEMO_TEMPLATES: Record<DemoTemplateKey, DemoTemplate> = {
         unit: "piece",
         inventoryStatus: "in_stock",
         tags: ["bonnet", "hair care"],
+        photoQuery: ["satin bonnet", "silk hair scarf", "woman silk headscarf"],
         variants: [
           { name: "Black", options: { colour: "Black" }, inventoryStatus: "in_stock", stockQuantity: 10 },
           { name: "Champagne", options: { colour: "Champagne" }, inventoryStatus: "in_stock", stockQuantity: 7 },
         ],
       },
+      ...BEAUTY_MORE,
     ],
     services: [
       {
@@ -563,6 +509,7 @@ export const DEMO_TEMPLATES: Record<DemoTemplateKey, DemoTemplate> = {
         inventoryStatus: "made_to_order",
         tags: ["cake", "birthday", "custom", "celebration"],
       },
+      ...BAKERY_MORE,
     ],
     services: [],
     knowledge: [
@@ -570,6 +517,13 @@ export const DEMO_TEMPLATES: Record<DemoTemplateKey, DemoTemplate> = {
       { category: "stock_note", title: "Sourdough bake days", body: "Sourdough is baked fresh every day except Sunday; Sunday orders are baked Saturday evening." },
     ],
   },
+
+  // Walrus Market department shops (catalog/*.ts).
+  gadgets: { key: "gadgets", ...GADGETS },
+  designers: { key: "designers", ...DESIGNERS },
+  kitchen: { key: "kitchen", ...KITCHEN },
+  drinks: { key: "drinks", ...DRINKS },
+  home: { key: "home", ...HOME },
 };
 
 /**
@@ -670,20 +624,28 @@ export async function applyDemoTemplate(
     serviceCount++;
   }
 
-  // Demo items created before photos existed: add the stock photo, never replacing a merchant's own.
+  // Demo items seeded earlier: keep their demo photo current (added, replaced or withdrawn after a
+  // photo review). Only rows with no image or a bundled demo photo change — never a merchant's own.
+  const demoPhotoOnly = (column: typeof products.images | typeof services.images, slug: string, next: string[]) =>
+    and(
+      sql`${column} in ('[]'::jsonb, ${JSON.stringify([`/stock/${slug}.webp`])}::jsonb, ${JSON.stringify([`/stock/${slug}.jpg`])}::jsonb)`,
+      sql`${column} <> ${JSON.stringify(next)}::jsonb`,
+    );
   for (const p of template.products) {
-    if (!existingProducts.has(p.slug) || !STOCK_PHOTOS.has(p.slug)) continue;
+    if (!existingProducts.has(p.slug)) continue;
+    const next = stockPhotos(p.slug);
     await db
       .update(products)
-      .set({ images: stockPhotos(p.slug) })
-      .where(and(eq(products.merchantId, merchantId), eq(products.slug, p.slug), sql`${products.images} = '[]'::jsonb`));
+      .set({ images: next })
+      .where(and(eq(products.merchantId, merchantId), eq(products.slug, p.slug), demoPhotoOnly(products.images, p.slug, next)));
   }
   for (const sv of template.services) {
-    if (!existingServices.has(sv.slug) || !STOCK_PHOTOS.has(sv.slug)) continue;
+    if (!existingServices.has(sv.slug)) continue;
+    const next = stockPhotos(sv.slug);
     await db
       .update(services)
-      .set({ images: stockPhotos(sv.slug) })
-      .where(and(eq(services.merchantId, merchantId), eq(services.slug, sv.slug), sql`${services.images} = '[]'::jsonb`));
+      .set({ images: next })
+      .where(and(eq(services.merchantId, merchantId), eq(services.slug, sv.slug), demoPhotoOnly(services.images, sv.slug, next)));
   }
 
   const existingKnowledge = await db

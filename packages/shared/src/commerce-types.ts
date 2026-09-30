@@ -116,6 +116,7 @@ export const BUSINESS_TYPES = [
   { value: "beauty", label: "Beauty & cosmetics" },
   { value: "electronics", label: "Electronics" },
   { value: "restaurant", label: "Restaurant & food" },
+  { value: "drinks", label: "Drinks & beverages" },
   { value: "bakery", label: "Bakery & desserts" },
   { value: "homeware", label: "Homeware & furniture" },
   { value: "creative", label: "Creative materials & printing" },
