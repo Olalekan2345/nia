@@ -65,12 +65,15 @@ import {
 } from "@nia/ai";
 import { safeEqual } from "@nia/shared/server";
 import { formatMoney, isAppError } from "@nia/shared";
-import type { Bot } from "./api";
+import { TG_EFFECT, type Bot } from "./api";
 import {
   alternativesText,
   basketText,
   bookingSummaryText,
   CB,
+  celebrationText,
+  confirmOrderLabel,
+  paidOrderText,
   compareText,
   escapeHtml,
   marketCaption,
@@ -100,6 +103,29 @@ export interface TelegramDeps {
   defaultShopSlug?: string | null;
   /** Max time to wait for Walrus to confirm a memory before leaving the "saving" note as is. */
   durableWaitMs?: number;
+  /** How long a demo checkout shows "Confirming your payment…" (default 2 s). */
+  checkoutPauseMs?: number;
+}
+
+/* ─────────────────────────────── Demo checkout ─────────────────────────────── */
+
+/** Keep the "confirming…" moment readable, however fast the server is. */
+async function withMinimumPause<T>(task: Promise<T>, ms: number): Promise<T> {
+  const [result] = await Promise.all([task, new Promise((r) => setTimeout(r, ms))]);
+  return result;
+}
+
+/** Nia's celebration: her photo with Telegram's confetti effect (plain text when the app has no public URL). */
+async function celebrate(c: ChatContext, caption: string, keyboard?: InlineKeyboardMarkup): Promise<void> {
+  const { bot, appUrl } = c.deps;
+  const photo = /^https:\/\//.test(appUrl) ? `${appUrl}/brand/nia-celebrate.jpg` : null;
+  try {
+    if (photo) await bot.sendPhoto(c.chatId, photo, caption, keyboard, TG_EFFECT.party);
+    else await bot.sendMessage(c.chatId, caption, { html: true, keyboard, effect: TG_EFFECT.party });
+  } catch {
+    // Effects work in private chats only; never lose the message over it.
+    await bot.sendMessage(c.chatId, caption, { html: true, keyboard }).catch(() => {});
+  }
 }
 
 /* ─────────────────────────────── Webhook guards ─────────────────────────────── */
@@ -691,7 +717,7 @@ async function sendCards(c: ChatContext, merchant: Merchant, outputs: ToolOutput
     await bot.sendMessage(c.chatId, orderSummaryText(s, merchant.locale), {
       html: true,
       keyboard: outputs.cart.needsConfirmation
-        ? { inline_keyboard: [[{ text: "✅ Confirm order", callback_data: CB.confirmOrder(s.id) }, { text: "✏️ Edit", callback_data: CB.editOrder(s.id) }]] }
+        ? { inline_keyboard: [[{ text: confirmOrderLabel(s, merchant.locale), callback_data: CB.confirmOrder(s.id) }, { text: "✏️ Edit", callback_data: CB.editOrder(s.id) }]] }
         : undefined,
     });
   }
@@ -953,7 +979,7 @@ async function reviewShopCart(c: ChatContext, slug: string): Promise<void> {
   const summary = await orderSummary(db, shop.id, draft.id);
   await bot.sendMessage(c.chatId, orderSummaryText(summary, shop.locale, `Your cart · ${escapeHtml(shop.name)}`), {
     html: true,
-    keyboard: summary.blockers.length === 0 ? { inline_keyboard: [[{ text: "✅ Confirm order", callback_data: CB.confirmOrder(summary.id) }, { text: "✏️ Edit", callback_data: CB.editOrder(summary.id) }]] } : undefined,
+    keyboard: summary.blockers.length === 0 ? { inline_keyboard: [[{ text: confirmOrderLabel(summary, shop.locale), callback_data: CB.confirmOrder(summary.id) }, { text: "✏️ Edit", callback_data: CB.editOrder(summary.id) }]] } : undefined,
   });
   if (summary.blockers.length) await bot.sendMessage(c.chatId, "Tell me delivery (with your area) or pickup, and I'll get it ready to confirm.");
 }
@@ -1073,14 +1099,39 @@ async function handleCallback(deps: TelegramDeps, q: TgCallbackQuery): Promise<v
         return;
       }
       case "oc": {
-        const { summary, payment, receipt } = await confirmCustomerOrder(actx, arg);
-        await bot.answerCallbackQuery(q.id, `Order #${summary.number} placed`).catch(() => {});
-        if (q.message) await bot.editReplyMarkup(chatId, q.message.message_id).catch(() => {});
-        const payLine = payment ? `\n\n${escapeHtml(payment.instructions)}` : "";
-        await bot.sendMessage(chatId, `✅ ${orderSummaryText(summary, merchant.locale, "Order placed")}${payLine}\n\n${escapeHtml(merchant.name)} will confirm availability shortly.`, {
-          html: true,
-          keyboard: payment?.url ? { inline_keyboard: [[{ text: "Pay now", url: payment.url }]] } : undefined,
-        });
+        // Demo shops: "confirming…" for a couple of seconds, then the paid order and Nia's celebration.
+        const waiting = merchant.isDemo ? await bot.sendMessage(chatId, `⏳ <i>Confirming your payment with ${escapeHtml(merchant.name)}…</i>`, { html: true }).catch(() => null) : null;
+        if (waiting) {
+          await bot.answerCallbackQuery(q.id, "Confirming your payment…").catch(() => {});
+          if (q.message) await bot.editReplyMarkup(chatId, q.message.message_id).catch(() => {});
+        }
+        let placed: Awaited<ReturnType<typeof confirmCustomerOrder>>;
+        try {
+          placed = waiting ? await withMinimumPause(confirmCustomerOrder(actx, arg), deps.checkoutPauseMs ?? 2000) : await confirmCustomerOrder(actx, arg);
+        } catch (err) {
+          if (waiting) await bot.editMessageText(chatId, waiting.message_id, "⚠️ <i>Payment not taken.</i>", { html: true }).catch(() => {});
+          throw err;
+        }
+        const { summary, payment, receipt } = placed;
+        if (!waiting) {
+          await bot.answerCallbackQuery(q.id, `Order #${summary.number} placed`).catch(() => {});
+          if (q.message) await bot.editReplyMarkup(chatId, q.message.message_id).catch(() => {});
+        }
+        if (summary.paymentMode === "demo" && summary.paymentStatus === "paid") {
+          const text = paidOrderText(summary, merchant.locale);
+          if (waiting) await bot.editMessageText(chatId, waiting.message_id, text, { html: true }).catch(() => bot.sendMessage(chatId, text, { html: true }));
+          else await bot.sendMessage(chatId, text, { html: true });
+          await celebrate(c, celebrationText(summary), { inline_keyboard: [[{ text: "View my orders", url: storefrontUrl(deps.appUrl, merchant, "/orders") }]] });
+        } else {
+          const payLine = payment ? `\n\n${escapeHtml(payment.instructions)}` : "";
+          const text = `✅ ${orderSummaryText(summary, merchant.locale, "Order placed")}${payLine}\n\n${escapeHtml(merchant.name)} will confirm availability shortly.`;
+          if (waiting) await bot.editMessageText(chatId, waiting.message_id, text, { html: true }).catch(() => {});
+          else
+            await bot.sendMessage(chatId, text, {
+              html: true,
+              keyboard: payment?.url ? { inline_keyboard: [[{ text: "Pay now", url: payment.url }]] } : undefined,
+            });
+        }
         if (isPending(receipt)) {
           const confirm = await startReceipt(c, [receipt], {
             saving: "🧠 <i>Adding this order to your history…</i>",
@@ -1098,9 +1149,15 @@ async function handleCallback(deps: TelegramDeps, q: TgCallbackQuery): Promise<v
       }
       case "bc": {
         const { booking, receipt } = await confirmCustomerBooking(actx, arg);
-        await bot.answerCallbackQuery(q.id, "Booking requested").catch(() => {});
+        const confirmed = booking.status === "confirmed";
+        await bot.answerCallbackQuery(q.id, confirmed ? "Booking confirmed" : "Booking requested").catch(() => {});
         if (q.message) await bot.editReplyMarkup(chatId, q.message.message_id).catch(() => {});
-        await bot.sendMessage(chatId, `✅ ${bookingSummaryText(booking, merchant.locale, "Booking requested")}\n\n${escapeHtml(merchant.name)} will confirm your appointment.`, { html: true });
+        if (confirmed) {
+          await bot.sendMessage(chatId, `✅ ${bookingSummaryText(booking, merchant.locale, "Booking confirmed")}`, { html: true });
+          await celebrate(c, `🎉 <b>You're booked in!</b>\n${escapeHtml(merchant.name)} has you down — see you then.`);
+        } else {
+          await bot.sendMessage(chatId, `✅ ${bookingSummaryText(booking, merchant.locale, "Booking requested")}\n\n${escapeHtml(merchant.name)} will confirm your appointment.`, { html: true });
+        }
         if (isPending(receipt)) {
           const confirm = await startReceipt(c, [receipt], {
             saving: "🧠 <i>Adding this booking to your history…</i>",

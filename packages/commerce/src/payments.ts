@@ -11,10 +11,10 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { orders, type Db, type Merchant, type Order } from "@nia/database";
 import { env } from "@nia/config";
-import { AppError, formatMoney, type PaymentMode } from "@nia/shared";
+import { AppError, formatMoney, type OrderPaymentMode, type PaymentMode } from "@nia/shared";
 
 export interface PaymentStart {
-  mode: PaymentMode;
+  mode: OrderPaymentMode;
   instructions: string;
   url: string | null;
   reference: string | null;

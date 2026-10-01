@@ -6,7 +6,7 @@
  */
 import { tool } from "ai";
 import { z } from "zod";
-import { compareFacts, marketProducts, searchMarket, searchMarketServices, type MarketProduct, type MarketService } from "@nia/commerce";
+import { accountForCustomer, compareFacts, marketProducts, recentOrdersForAccount, searchMarket, searchMarketServices, type MarketProduct, type MarketService } from "@nia/commerce";
 import { toMinorUnits } from "@nia/shared";
 import { createAgentTools, rememberShown, sessionItem, specsText, whyReasons, type SearchConstraints } from "./agent-tools";
 import { createNiaTools, fail, searchExtras, toolGuard, type NiaToolScope } from "./tools";
@@ -173,6 +173,17 @@ export function createMarketTools(scope: NiaToolScope) {
         topic: z.string().min(2).max(30).optional().describe("2–3 word label, e.g. 'Budget'"),
       }),
       execute: async ({ question, options, topic }) => ({ ok: true as const, question, options, ...(topic ? { topic } : {}) }),
+    }),
+
+    getMyOrders: tool({
+      description: "The shopper's recent orders at every shop: progress, delivery estimate, whether it's overdue, and that shop's delivery policy.",
+      inputSchema: z.object({}),
+      execute: () =>
+        guard(async () => {
+          if (!scope.customerId) return fail("The shopper needs to sign in to see their orders.", "SIGN_IN_REQUIRED");
+          const list = await recentOrdersForAccount(db, await accountForCustomer(db, scope.customerId), 5);
+          return { ok: true as const, count: list.length, orders: list };
+        }),
     }),
 
     planBasket: agent.planBasket,

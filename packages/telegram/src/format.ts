@@ -3,7 +3,7 @@
  * summaries with inline keyboards. Callback data stays under Telegram's
  * 64-byte limit.
  */
-import { formatMoney, formatPriceRange, INVENTORY_LABELS } from "@nia/shared";
+import { DEMO_PAYMENT_NOTE, formatMoney, formatPriceRange, INVENTORY_LABELS, orderProgress } from "@nia/shared";
 import type { BookingSummaryData, OrderSummaryData, ProductCardData, ServiceCardData } from "@nia/commerce";
 import type { Merchant } from "@nia/database";
 import type { InlineKeyboardMarkup } from "./types";
@@ -270,4 +270,22 @@ export function compareText(products: { name: string; priceLabel?: string; shop?
 
 export function alternativesText(title: string, options: { name: string; variantName: string | null; reason: string; priceLabel?: string }[]): string {
   return [`🔁 <b>${escapeHtml(title)}</b>`, ...options.map((o) => `• ${escapeHtml(o.name)}${o.variantName ? ` (${escapeHtml(o.variantName)})` : ""} — ${escapeHtml(o.reason)}${o.priceLabel ? ` · ${o.priceLabel}` : ""}`)].join("\n");
+}
+
+/** The order card's button: in a demo shop one tap pays (simulated) and confirms. */
+export function confirmOrderLabel(o: OrderSummaryData, locale: string): string {
+  return o.checkout === "demo" ? `💳 Pay ${formatMoney(o.total, o.currency, { locale })} (demo)` : "✅ Confirm order";
+}
+
+/** Nia's celebration after a demo payment: what happens next, in her voice. */
+export function celebrationText(o: OrderSummaryData): string {
+  const p = orderProgress(o);
+  const cheer =
+    o.status === "ready" && o.fulfillmentMethod === "pickup" ? "Yay! Your order is ready for pickup." : o.status === "dispatched" ? "Woohoo! Your order is on its way." : "Done! The shop has your order.";
+  return `🎉 <b>${cheer}</b>\n${escapeHtml(p.headline)}${p.detail ? ` — ${escapeHtml(p.detail)}` : ""}`;
+}
+
+/** The paid order, replacing the "confirming…" message. */
+export function paidOrderText(o: OrderSummaryData, locale: string): string {
+  return `✅ ${orderSummaryText(o, locale, "Payment confirmed")}\n\n<i>${escapeHtml(DEMO_PAYMENT_NOTE)}</i>`;
 }

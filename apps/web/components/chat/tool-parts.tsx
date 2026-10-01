@@ -4,10 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { CalendarCheck, Check, ExternalLink, Loader2, Minus, PackageCheck, Plus, Search, ShoppingCart } from "lucide-react";
 import { Button, Select, buttonClasses, cn } from "@nia/ui";
-import { formatMoney, formatPriceRange, type InventoryStatus } from "@nia/shared";
+import { DEMO_PAYMENT_NOTE, formatMoney, formatPriceRange, orderProgress, type InventoryStatus } from "@nia/shared";
 import type { BookingSummaryData, OrderSummaryData, PaymentStart, ProductCardData, ServiceCardData, SlotData } from "@nia/commerce";
 import type { MemoryReceiptView } from "@nia/ai";
 import { BookingCard, OrderSummaryCard, ProductCard, ServiceCard } from "@/components/commerce/cards";
+import { bookingOutcome, CheckoutCelebration, orderOutcome, withMinimumWait } from "@/components/commerce/checkout-celebration";
 import { ProductVisual } from "@/components/commerce/product-visual";
 import { CompareToggle } from "@/components/market/compare-controls";
 import { MarketProductCard } from "@/components/market/market-card";
@@ -246,14 +247,16 @@ function BookingDraft({ booking, actions }: { booking: BookingSummaryData; actio
   const [state, setState] = useState<"idle" | "saving" | "done" | "cancelled">(booking.status === "draft" ? "idle" : "done");
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<MemoryReceiptView | null>(null);
+  const [popup, setPopup] = useState<"confirming" | "done" | null>(null);
   const receipts = useReceiptPoll(actions.slug, receipt ? [receipt] : []);
+  const confirmed = current.status === "confirmed";
   if (state === "cancelled") return <p className="text-sm text-muted-foreground">Booking proposal withdrawn.</p>;
   return (
     <div className="space-y-2">
       <BookingCard
         booking={current}
         locale={actions.locale}
-        title={state === "done" ? "Booking requested" : "Please confirm"}
+        title={state === "done" ? (confirmed ? "Booking confirmed" : "Booking requested") : "Please confirm"}
         actions={
           state === "done" ? null : (
             <>
@@ -263,12 +266,15 @@ function BookingDraft({ booking, actions }: { booking: BookingSummaryData; actio
                 onClick={async () => {
                   setState("saving");
                   setError(null);
-                  const res = await actions.confirmBooking(current.id);
+                  setPopup("confirming");
+                  const res = await withMinimumWait(actions.confirmBooking(current.id));
                   if (res.ok) {
                     setCurrent(res.booking);
                     setReceipt(res.receipt);
                     setState("done");
+                    setPopup("done");
                   } else {
+                    setPopup(null);
                     setError(res.error);
                     setState("idle");
                   }
@@ -296,7 +302,19 @@ function BookingDraft({ booking, actions }: { booking: BookingSummaryData; actio
           {error}
         </p>
       ) : null}
-      {state === "done" ? <p className="text-sm text-muted-foreground">The shop will confirm your appointment. You can see it under Orders.</p> : null}
+      {popup ? (
+        <CheckoutCelebration
+          kind="booking"
+          phase={popup}
+          demo={confirmed}
+          shops={[actions.shopName]}
+          outcomes={popup === "done" ? [bookingOutcome(current, { slug: actions.slug, name: actions.shopName }, receipt, actions.locale)] : []}
+          onClose={() => setPopup(null)}
+        />
+      ) : null}
+      {state === "done" ? (
+        <p className="text-sm text-muted-foreground">{confirmed ? "You're booked in — see it under Orders." : "The shop will confirm your appointment. You can see it under Orders."}</p>
+      ) : null}
       {receipts.length ? <ReceiptList receipts={receipts} compact /> : null}
     </div>
   );
@@ -310,13 +328,18 @@ function OrderConfirm({ summary, actions }: { summary: OrderSummaryData; actions
   const [payment, setPayment] = useState<PaymentStart | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<MemoryReceiptView | null>(null);
+  const [popup, setPopup] = useState<"confirming" | "done" | null>(null);
   const receipts = useReceiptPoll(actions.slug, receipt ? [receipt] : []);
+  const demo = order.checkout === "demo";
+  const paid = order.paymentMode === "demo" && order.paymentStatus === "paid";
+  const progress = order.status !== "draft" ? orderProgress(order) : null;
+  const shop = { slug: actions.slug, name: actions.shopName };
   return (
     <div className="space-y-2">
       <OrderSummaryCard
         order={order}
         locale={actions.locale}
-        title={state === "done" ? `Order #${order.number} placed` : "Order summary"}
+        title={state === "done" ? `Order #${order.number} ${paid ? "paid" : "placed"}` : "Order summary"}
         actions={
           state === "done" ? null : (
             <>
@@ -326,19 +349,23 @@ function OrderConfirm({ summary, actions }: { summary: OrderSummaryData; actions
                 onClick={async () => {
                   setState("saving");
                   setError(null);
-                  const res = await actions.confirmOrder(order.id);
+                  if (demo) setPopup("confirming");
+                  const res = demo ? await withMinimumWait(actions.confirmOrder(order.id)) : await actions.confirmOrder(order.id);
                   if (res.ok) {
                     setOrder(res.summary);
                     setPayment(res.payment);
                     setReceipt(res.receipt);
                     setState("done");
+                    if (demo) setPopup("done");
                   } else {
+                    setPopup(null);
                     setError(res.error);
                     setState("idle");
                   }
                 }}
               >
-                <PackageCheck className="size-4" aria-hidden="true" /> Confirm order
+                <PackageCheck className="size-4" aria-hidden="true" />{" "}
+                {demo ? `Pay ${formatMoney(order.total, order.currency, { locale: actions.locale })} (demo)` : "Confirm order"}
               </Button>
               <Button variant="secondary" disabled={actions.busy} onClick={() => actions.send("I'd like to change something in my order.")}>
                 Edit
@@ -347,12 +374,29 @@ function OrderConfirm({ summary, actions }: { summary: OrderSummaryData; actions
           )
         }
       />
+      {demo && state !== "done" ? <p className="px-1 text-xs text-muted-foreground">{DEMO_PAYMENT_NOTE}</p> : null}
+      {popup ? (
+        <CheckoutCelebration
+          kind="order"
+          phase={popup}
+          demo
+          shops={[actions.shopName]}
+          outcomes={popup === "done" ? [orderOutcome(order, shop, receipt)] : []}
+          onClose={() => setPopup(null)}
+        />
+      ) : null}
       {error ? (
         <p className="text-sm text-danger" role="alert">
           {error}
         </p>
       ) : null}
-      {state === "done" ? (
+      {state === "done" && paid && progress ? (
+        <div className="rounded-3xl border border-success/20 bg-success-soft p-3 text-sm" role="status">
+          <p className="font-semibold text-success">{progress.headline}</p>
+          {progress.detail ? <p className="mt-1">{progress.detail}</p> : null}
+          <p className="mt-1 text-xs text-muted-foreground">{payment?.instructions ?? DEMO_PAYMENT_NOTE}</p>
+        </div>
+      ) : state === "done" ? (
         <div className="rounded-3xl border border-ink-900/[0.06] bg-surface shadow-soft-2 p-3 text-sm">
           <p className="font-semibold">What happens next</p>
           <p className="mt-1 text-muted-foreground">{payment?.instructions ?? "The shop will confirm availability and how to pay."}</p>

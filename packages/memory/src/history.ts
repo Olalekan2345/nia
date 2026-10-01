@@ -24,6 +24,10 @@ export interface OrderMemoryInput {
   hasUnpricedItems: boolean;
   occasion?: string | null;
   notes?: string | null;
+  /** What happened at checkout, e.g. "Paid with a demo payment; on its way to Yaba, expected today." */
+  outcome?: string | null;
+  /** The shopping decisions behind it, from the conversation (goal, who it's for, budget). */
+  context?: string | null;
 }
 
 function describeItem(i: OrderMemoryInput["items"][number], currency: string, locale?: string): string {
@@ -39,13 +43,15 @@ export function orderStatement(o: OrderMemoryInput): string {
   const items = o.items.map((i) => describeItem(i, o.currency, o.locale)).join("; ");
   const fulfil =
     o.fulfillmentMethod === "pickup"
-      ? "Collected by pickup."
+      ? "Chose pickup."
       : o.deliveryArea
         ? `Delivery to ${o.deliveryArea}.`
         : "";
   const total = o.hasUnpricedItems ? "Total to be confirmed after quote." : `Order total ${formatMoney(o.total, o.currency, { locale: o.locale })}.`;
   const occasion = o.occasion ? ` Occasion: ${o.occasion}.` : "";
-  return `Customer placed order #${o.orderNumber} on ${date}: ${items}. ${fulfil} ${total}${occasion}`.replace(/\s+/g, " ").trim();
+  const outcome = o.outcome ? ` ${o.outcome}` : "";
+  const context = o.context ? ` Shopping decisions: ${o.context}` : "";
+  return `Customer placed order #${o.orderNumber} on ${date}: ${items}. ${fulfil} ${total}${occasion}${outcome}${context}`.replace(/\s+/g, " ").trim();
 }
 
 export function orderLabel(o: OrderMemoryInput): string {
@@ -152,6 +158,8 @@ export interface BookingMemoryInput {
   options: string[];
   notes?: string | null;
   channel: Channel;
+  /** e.g. "Confirmed by the shop." */
+  outcome?: string | null;
 }
 
 export async function rememberPastService(db: Db, store: MemoryStore | null, b: BookingMemoryInput): Promise<MemoryReceipt> {
@@ -172,7 +180,7 @@ export async function rememberPastService(db: Db, store: MemoryStore | null, b: 
     type: "PAST_SERVICE",
     subject: `booking_${b.bookingId.slice(0, 8)}`,
     value: b.bookingId,
-    statement: `Customer booked ${b.serviceName}${opts} for ${when}.${b.notes ? ` Their note: ${b.notes.slice(0, 160)}` : ""}`,
+    statement: `Customer booked ${b.serviceName}${opts} for ${when}.${b.outcome ? ` ${b.outcome}` : ""}${b.notes ? ` Their note: ${b.notes.slice(0, 160)}` : ""}`,
     label: `Booked: ${b.serviceName}`,
     confirmation: "observed_from_orders",
     explicit: true,

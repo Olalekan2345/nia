@@ -6,6 +6,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import type { Db } from "./client";
 import { merchantKnowledge, merchants, products, productVariants, services } from "./schema";
+import { DEMO_SHOP_POLICIES } from "@nia/shared";
 import { ngn, weekdayHours, type DemoTemplateBase, type VariantSeed } from "./catalog/kit";
 import { GADGETS } from "./catalog/gadgets";
 import { DESIGNERS } from "./catalog/designers";
@@ -659,4 +660,23 @@ export async function applyDemoTemplate(
   }
 
   return { products: productCount, services: serviceCount };
+}
+
+/**
+ * Demo shops (merchants.isDemo) get the demo-checkout policies Nia quotes: the
+ * simulated payment and the late-delivery promise. Their template's "Payment"
+ * note ("we confirm, then share bank details") no longer applies, so it is
+ * switched off. Idempotent; never run for real shops.
+ */
+export async function applyDemoShopPolicies(db: Db, merchantId: string): Promise<number> {
+  const [m] = await db.select({ isDemo: merchants.isDemo }).from(merchants).where(eq(merchants.id, merchantId));
+  if (!m?.isDemo) return 0;
+  await db
+    .update(merchantKnowledge)
+    .set({ active: false })
+    .where(and(eq(merchantKnowledge.merchantId, merchantId), eq(merchantKnowledge.title, "Payment"), eq(merchantKnowledge.active, true)));
+  const existing = new Set((await db.select({ title: merchantKnowledge.title }).from(merchantKnowledge).where(eq(merchantKnowledge.merchantId, merchantId))).map((k) => k.title));
+  const missing = DEMO_SHOP_POLICIES.filter((p) => !existing.has(p.title));
+  if (missing.length) await db.insert(merchantKnowledge).values(missing.map((p) => ({ merchantId, category: p.category, title: p.title, body: p.body })));
+  return missing.length;
 }

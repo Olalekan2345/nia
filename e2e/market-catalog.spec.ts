@@ -154,10 +154,48 @@ test("new product pages work end to end: variants, price, and carts in two shops
   await expect(gadgets.getByRole("button", { name: "Pickup" })).toHaveAttribute("aria-pressed", "true");
   await drinks.getByRole("button", { name: "Pickup" }).click();
   await expect(drinks.getByRole("button", { name: "Pickup" })).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("button", { name: "Confirm all 2 orders" }).click();
-  await expect(page.getByText(/Order #\d+ placed · Walrus Gadgets/)).toBeVisible({ timeout: 60_000 });
-  await expect(page.getByText(/Order #\d+ placed · Walrus Drinks/)).toBeVisible();
+  // Demo shops: one tap pays (simulated), Nia confirms for a moment, then celebrates.
+  await expect(page.getByText(/payment is simulated — no real money moves/).first()).toBeVisible();
+  await page.getByRole("button", { name: "Pay for all 2 orders (demo)" }).click();
+  await expect(page.getByRole("dialog", { name: "Confirming your payment…" })).toBeVisible();
+  const done = page.getByRole("dialog", { name: "Payment confirmed" });
+  await expect(done).toBeVisible({ timeout: 60_000 });
+  await expect(done).toContainText("All paid! Every shop has your order.");
+  await expect(done.getByText("Ready for pickup")).toHaveCount(2);
+  await expect(done).toContainText("Walrus Gadgets");
+  await expect(done).toContainText("Walrus Drinks");
+  // It stays until the shopper closes it (the page doesn't refresh away under it).
+  await page.waitForTimeout(2000);
+  await expect(done).toBeVisible();
+  await done.getByRole("button", { name: "Done" }).click();
+  await expect(page.getByText(/Order #\d+ paid · Walrus Gadgets/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(/Order #\d+ paid · Walrus Drinks/)).toBeVisible();
   await expect(page.getByText("Your cart is empty")).toHaveCount(0);
+});
+
+test("a demo-shop delivery is paid at once and goes out, with no owner to wait for", async ({ page }) => {
+  await page.goto("/s/walrus-drinks/signin");
+  await completeSignIn(page, uniqueEmail("demo-pay"));
+  await page.goto("/s/walrus-drinks/shop/orange-juice");
+  await page.getByRole("button", { name: "Add to cart" }).click();
+  await expect(page.getByRole("button", { name: "Added to cart" })).toBeVisible();
+  await page.goto("/s/walrus-drinks/orders");
+  await page.getByRole("button", { name: "Delivery" }).click();
+  await page.getByLabel("Delivery area").selectOption("Yaba");
+  const pay = page.getByRole("button", { name: /^Pay ₦[\d,]+ \(demo\)$/ });
+  await expect(pay).toBeEnabled();
+  await pay.click();
+  const done = page.getByRole("dialog", { name: "Payment confirmed" });
+  await expect(done).toBeVisible({ timeout: 60_000 });
+  await expect(done).toContainText("Woohoo! Your order is on its way.");
+  await expect(done).toContainText("On its way to Yaba");
+  await expect(done).toContainText(/Expected by \w{3} \d{1,2} \w{3}\./);
+  await page.waitForTimeout(2000);
+  await expect(done).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(done).toHaveCount(0);
+  await expect(page.getByText(/Order #\d+ paid · On its way to Yaba/)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Paid (demo)").first()).toBeVisible();
 });
 
 test("market cards add straight to the one cart", async ({ page }) => {

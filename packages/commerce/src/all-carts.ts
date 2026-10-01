@@ -5,7 +5,7 @@
  * confirmed from one place. Only ever reads that account's own customers.
  */
 import { and, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
-import { customerIdentities, customers, merchants, orderItems, orders, type Db, type Merchant } from "@nia/database";
+import { customerIdentities, customers, merchantKnowledge, merchants, orderItems, orders, type Db, type Merchant } from "@nia/database";
 import type { DeliveryArea } from "@nia/shared";
 import { orderSummary } from "./orders";
 import type { OrderSummaryData } from "./types";
@@ -94,6 +94,18 @@ export async function accountCustomerIds(db: Db, { userId, telegramUserId }: Acc
   return live.map((c) => c.id);
 }
 
+/** The web account and Telegram user behind one customer record. */
+export async function accountForCustomer(db: Db, customerId: string): Promise<Account> {
+  const [[c], [tg]] = await Promise.all([
+    db.select({ userId: customers.userId }).from(customers).where(eq(customers.id, customerId)),
+    db
+      .select({ subject: customerIdentities.subject })
+      .from(customerIdentities)
+      .where(and(eq(customerIdentities.customerId, customerId), eq(customerIdentities.provider, "TELEGRAM"))),
+  ]);
+  return { userId: c?.userId ?? null, telegramUserId: tg ? Number(tg.subject) || null : null };
+}
+
 /** The account's non-empty carts, one per shop, most recent first. */
 export async function cartsForAccount(db: Db, account: Account): Promise<ShopCart[]> {
   return cartsForCustomers(db, await accountCustomerIds(db, account));
@@ -111,6 +123,37 @@ export async function placedOrdersForAccount(db: Db, account: Account, orderIds:
     .where(and(inArray(orders.id, ids), inArray(orders.customerId, own), ne(orders.status, "draft")));
   const shops = rows.length ? await db.select().from(merchants).where(inArray(merchants.id, [...new Set(rows.map((r) => r.merchantId))])) : [];
   return Promise.all(rows.map(async (r) => ({ ...(await orderSummary(db, r.merchantId, r.id)), shop: shopOf(shops.find((s) => s.id === r.merchantId)!) })));
+}
+
+/**
+ * The account's recent orders at every shop (newest first), each with that
+ * shop's written delivery policy — for "where is my order?" in the market chat.
+ */
+export async function recentOrdersForAccount(db: Db, account: Account, limit = 5): Promise<(OrderSummaryData & { shop: { name: string; slug: string }; deliveryPolicy: string | null })[]> {
+  const own = await accountCustomerIds(db, account);
+  if (own.length === 0) return [];
+  const rows = await db
+    .select({ id: orders.id, merchantId: orders.merchantId })
+    .from(orders)
+    .where(and(inArray(orders.customerId, own), ne(orders.status, "draft")))
+    .orderBy(desc(orders.submittedAt), desc(orders.createdAt))
+    .limit(Math.min(limit, 10));
+  if (rows.length === 0) return [];
+  const merchantIds = [...new Set(rows.map((r) => r.merchantId))];
+  const [shops, policies] = await Promise.all([
+    db.select({ id: merchants.id, name: merchants.name, slug: merchants.slug }).from(merchants).where(inArray(merchants.id, merchantIds)),
+    db
+      .select({ merchantId: merchantKnowledge.merchantId, title: merchantKnowledge.title, body: merchantKnowledge.body })
+      .from(merchantKnowledge)
+      .where(and(inArray(merchantKnowledge.merchantId, merchantIds), eq(merchantKnowledge.active, true), sql`${merchantKnowledge.title} ~* '(late|missing|delay).*deliver|deliver.*(late|delay)'`)),
+  ]);
+  return Promise.all(
+    rows.map(async (r) => {
+      const shop = shops.find((s) => s.id === r.merchantId)!;
+      const policy = policies.find((p) => p.merchantId === r.merchantId);
+      return { ...(await orderSummary(db, r.merchantId, r.id)), shop: { name: shop.name, slug: shop.slug }, deliveryPolicy: policy ? `${policy.title}: ${policy.body}` : null };
+    }),
+  );
 }
 
 /** Items (lines) across all carts, for the header badge. */

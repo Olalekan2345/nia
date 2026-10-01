@@ -6,6 +6,9 @@
  * "…Label" strings the prompt tells Nia to quote. Every tool result is re-sent
  * on each later step, so this is the biggest token saving per reply.
  */
+import type { OrderSummaryData } from "@nia/commerce";
+import { orderProgress } from "@nia/shared";
+
 type R = Record<string, unknown>;
 const s = (v: unknown, max = 120) => (typeof v === "string" ? v.slice(0, max) : undefined);
 const arr = <T = R>(v: unknown) => (Array.isArray(v) ? (v as T[]) : []);
@@ -57,10 +60,17 @@ export function compactProduct(p: R): R {
 
 /** A cart / order summary. */
 export function compactCart(c: R): R {
+  const placed = typeof c.status === "string" && c.status !== "draft";
+  const progress = placed ? orderProgress(c as unknown as OrderSummaryData) : null;
+  const estimate = (c.estimate ?? null) as OrderSummaryData["estimate"];
   return drop({
     id: c.id,
     number: c.number,
     status: c.status,
+    progress: progress ? `${progress.headline}${progress.detail ? ` — ${progress.detail}` : ""}` : undefined,
+    paid: c.paymentStatus === "paid" ? (c.paymentMode === "demo" ? "yes (demo payment)" : "yes") : undefined,
+    expectedBy: estimate ? s(estimate.expectedBy, 16) : undefined,
+    overdue: c.overdue === true ? true : undefined,
     items: arr(c.items).map((i) => drop({ id: i.id, line: `${i.quantity} × ${i.name}${i.variantLabel ? ` (${i.variantLabel})` : ""}`, lineTotalLabel: s(i.lineTotalLabel) ?? "price to be quoted" })),
     fulfilment: c.fulfillmentMethod === "delivery" ? `delivery to ${c.deliveryArea ?? "(area not chosen)"}` : c.fulfillmentMethod ?? "not chosen",
     deliveryFeeLabel: s(c.deliveryFeeLabel),
@@ -109,6 +119,8 @@ export function modelOutput(tool: string, output: unknown): R {
         overBudgetByLabel: o.overBudgetByLabel,
         notes: o.notes,
       });
+    case "getMyOrders":
+      return { ok: true, orders: arr(o.orders).map((x) => drop({ shop: ((x.shop ?? {}) as R).name, ...compactCart(x), deliveryPolicy: s(x.deliveryPolicy, 300) })) };
     case "getCustomerRecentOrders":
       return drop({ ok: true, orders: arr(o.orders).slice(0, 5).map(compactCart), repeat: o.repeat, bookings: o.bookings, repeatBooking: o.repeatBooking });
     case "getOrder":

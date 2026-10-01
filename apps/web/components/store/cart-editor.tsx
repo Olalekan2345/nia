@@ -5,9 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ExternalLink, Minus, PackageCheck, Plus, Trash2 } from "lucide-react";
 import { Button, Field, Select, buttonClasses, cn } from "@nia/ui";
-import { formatMoney, type DeliveryArea } from "@nia/shared";
+import { DEMO_PAYMENT_NOTE, formatMoney, type DeliveryArea } from "@nia/shared";
 import type { OrderSummaryData, PaymentStart } from "@nia/commerce";
+import type { MemoryReceiptView } from "@nia/ai";
 import { confirmOrderAction, removeCartItemAction, setFulfillmentAction, updateCartItemAction } from "@/app/actions/store";
+import { CheckoutCelebration, orderOutcome, withMinimumWait, type CheckoutOutcome } from "@/components/commerce/checkout-celebration";
 
 export function CartEditor({
   slug,
@@ -20,6 +22,7 @@ export function CartEditor({
   title = "Your cart",
   placedHref,
   header,
+  shop,
 }: {
   slug: string;
   cart: OrderSummaryData;
@@ -34,11 +37,16 @@ export function CartEditor({
   placedHref?: string;
   /** Optional leading element in the header (e.g. the shop's logo). */
   header?: React.ReactNode;
+  /** The shop's name, for the checkout pop-up (defaults to the title). */
+  shop?: string;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [placed, setPlaced] = useState<{ summary: OrderSummaryData; payment: PaymentStart | null } | null>(null);
+  const [popup, setPopup] = useState<{ phase: "confirming" | "done"; outcome?: CheckoutOutcome; next?: () => void } | null>(null);
+  const demo = cart.checkout === "demo";
+  const shopName = shop ?? title;
 
   const run = (fn: () => Promise<{ ok: boolean; error?: string }>) =>
     start(async () => {
@@ -160,28 +168,52 @@ export function CartEditor({
           className="flex-1"
           disabled={cart.blockers.length > 0}
           loading={pending}
-          onClick={() =>
+          onClick={() => {
+            // Shown straight away (state set inside the async transition would wait for it to finish).
+            if (demo) setPopup({ phase: "confirming" });
             start(async () => {
               setError(null);
-              const res = await confirmOrderAction(slug, cart.id);
-              if (res.ok) {
+              const res = demo ? await withMinimumWait(confirmOrderAction(slug, cart.id)) : await confirmOrderAction(slug, cart.id);
+              const next = (id: string) => {
+                router.replace(placedHref ? placedHref.replace("{id}", id) : `/s/${slug}/orders?placed=${id}`, { scroll: false });
+                router.refresh(); // header cart counts too
+              };
+              if (res.ok && demo) {
+                // Nia celebrates first; the page moves on to the confirmation when the pop-up closes.
+                setPopup({ phase: "done", outcome: orderOutcome(res.summary, { slug, name: shopName }, (res.receipt as MemoryReceiptView | null) ?? null), next: () => next(res.summary.id) });
+              } else if (res.ok) {
                 setPlaced({ summary: res.summary, payment: res.payment });
                 // The cart disappears once the order exists; the page keeps showing the confirmation.
-                router.replace(placedHref ? placedHref.replace("{id}", res.summary.id) : `/s/${slug}/orders?placed=${res.summary.id}`, { scroll: false });
+                next(res.summary.id);
               } else {
+                setPopup(null);
                 setError(res.error);
                 router.refresh();
               }
-            })
-          }
+            });
+          }}
         >
-          <PackageCheck className="size-5" aria-hidden="true" /> Confirm order
+          <PackageCheck className="size-5" aria-hidden="true" /> {demo ? `Pay ${total} (demo)` : "Confirm order"}
         </Button>
         <Link href={`/s/${slug}/chat?q=${encodeURIComponent("Help me with my cart")}`} className={buttonClasses({ variant: "secondary", size: "lg" })}>
           Ask Nia
         </Link>
       </div>
       {cart.blockers.length ? <p className="px-4 pb-4 text-sm text-muted-foreground">Still needed: {cart.blockers.join(" · ")}</p> : null}
+      {demo && !cart.blockers.length ? <p className="px-4 pb-4 text-xs text-muted-foreground">{DEMO_PAYMENT_NOTE}</p> : null}
+      {popup ? (
+        <CheckoutCelebration
+          kind="order"
+          phase={popup.phase}
+          demo
+          shops={[shopName]}
+          outcomes={popup.outcome ? [popup.outcome] : []}
+          onClose={() => {
+            setPopup(null);
+            popup.next?.();
+          }}
+        />
+      ) : null}
     </section>
   );
 }

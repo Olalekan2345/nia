@@ -134,7 +134,7 @@ export async function confirmBookingRequest(
 
 export async function transitionBooking(
   db: Db,
-  { merchantId, bookingId, to, actor }: { merchantId: string; bookingId: string; to: BookingStatus; actor: { type: "customer" | "merchant" } },
+  { merchantId, bookingId, to, actor }: { merchantId: string; bookingId: string; to: BookingStatus; actor: { type: "customer" | "merchant" | "system" } },
 ): Promise<BookingSummaryData> {
   const [b] = await db.select().from(bookings).where(and(eq(bookings.id, bookingId), eq(bookings.merchantId, merchantId)));
   if (!b) throw new AppError("NOT_FOUND", "Booking not found");

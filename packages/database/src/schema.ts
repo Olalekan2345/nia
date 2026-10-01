@@ -41,6 +41,7 @@ import type {
   MemoryType,
   OfferingKind,
   OrderStatus,
+  OrderPaymentMode,
   PaymentMode,
   PaymentStatus,
   FulfillmentMethod,
@@ -525,7 +526,7 @@ export const orders = pgTable(
     currency: text("currency").notNull(),
     notes: text("notes"),
     paymentStatus: text("payment_status").$type<PaymentStatus>().notNull().default("unpaid"),
-    paymentMode: text("payment_mode").$type<PaymentMode>().notNull().default("merchant_confirmed"),
+    paymentMode: text("payment_mode").$type<OrderPaymentMode>().notNull().default("merchant_confirmed"),
     paymentReference: text("payment_reference"),
     paymentUrl: text("payment_url"),
     /** Order was built with help from recalled customer memory ("same as last time"). */

@@ -13,7 +13,7 @@ import { eq } from "drizzle-orm";
 import { loadEnv } from "./env";
 import { createPostgresDb } from "../src/client";
 import { merchants, merchantMembers, users } from "../src/schema";
-import { applyDemoTemplate, DEMO_TEMPLATES, type DemoTemplateKey } from "../src/demo-templates";
+import { applyDemoShopPolicies, applyDemoTemplate, DEMO_TEMPLATES, type DemoTemplateKey } from "../src/demo-templates";
 
 loadEnv();
 
@@ -88,6 +88,8 @@ try {
         .returning();
     }
     const result = await applyDemoTemplate(db, merchant!.id, key);
+    // Demo checkout: simulated payment + the late-delivery policy Nia quotes.
+    await applyDemoShopPolicies(db, merchant!.id);
     if (ownerId) {
       await db
         .insert(merchantMembers)

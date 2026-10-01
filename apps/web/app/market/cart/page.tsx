@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ExternalLink, ShoppingCart, Sparkles } from "lucide-react";
 import { Mascot, buttonClasses } from "@nia/ui";
 import { cartsForAccount, placedOrdersForAccount } from "@nia/commerce";
-import { formatMoney } from "@nia/shared";
+import { DEMO_PAYMENT_NOTE, formatMoney, orderProgress } from "@nia/shared";
 import { ConfirmAllButton } from "@/components/market/confirm-all";
 import { CartEditor } from "@/components/store/cart-editor";
 import { MerchantMark } from "@/components/store/merchant-mark";
@@ -40,7 +40,8 @@ export default async function MarketCartPage({ searchParams }: { searchParams: P
   const lines = carts.reduce((n, c) => n + c.cart.items.length, 0);
   const priced = carts.filter((c) => !c.cart.hasUnpricedItems);
   const grand = priced.reduce((s, c) => s + c.cart.total, 0);
-  const ready = carts.filter((c) => c.cart.blockers.length === 0).map((c) => ({ slug: c.shop.slug, orderId: c.cart.id, shop: c.shop.name }));
+  const ready = carts.filter((c) => c.cart.blockers.length === 0).map((c) => ({ slug: c.shop.slug, orderId: c.cart.id, shop: c.shop.name, demo: c.cart.checkout === "demo" }));
+  const allDemo = carts.length > 0 && carts.every((c) => c.cart.checkout === "demo");
   const needsChoice = carts.filter((c) => c.cart.blockers.length > 0);
 
   return (
@@ -54,7 +55,19 @@ export default async function MarketCartPage({ searchParams }: { searchParams: P
           <h2 id="placed" className="sr-only">
             Orders placed
           </h2>
-          {placed.map((o) => (
+          {placed.map((o) =>
+            o.paymentMode === "demo" && o.paymentStatus === "paid" ? (
+              <div key={o.id} className="rounded-2xl border border-success/25 bg-success-soft p-4" role="status">
+                <p className="font-bold text-success">
+                  Order #{o.number} paid · {o.shop.name}
+                </p>
+                <p className="mt-1 text-sm">
+                  {formatMoney(o.total, o.currency, { locale: o.shop.locale })} · {orderProgress(o).headline}
+                  {orderProgress(o).detail ? ` — ${orderProgress(o).detail}` : ""}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">{DEMO_PAYMENT_NOTE}</p>
+              </div>
+            ) : (
             <div key={o.id} className="rounded-2xl border border-success/25 bg-success-soft p-4" role="status">
               <p className="font-bold text-success">
                 Order #{o.number} placed · {o.shop.name}
@@ -69,7 +82,8 @@ export default async function MarketCartPage({ searchParams }: { searchParams: P
                 </a>
               ) : null}
             </div>
-          ))}
+            ),
+          )}
         </section>
       ) : null}
 
@@ -88,7 +102,11 @@ export default async function MarketCartPage({ searchParams }: { searchParams: P
                 {priced.length < carts.length ? <span className="text-sm font-semibold text-muted-foreground"> + quotes</span> : null}
               </p>
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">Each shop confirms, delivers and takes payment for its own order. Delivery fees are included once you choose delivery.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {allDemo
+                ? `Each shop sends its own order. ${DEMO_PAYMENT_NOTE} Delivery fees are included once you choose delivery.`
+                : "Each shop confirms, delivers and takes payment for its own order. Delivery fees are included once you choose delivery."}
+            </p>
             {needsChoice.length ? (
               <p className="mt-2 text-sm">
                 <span className="font-semibold">Still needed:</span> {needsChoice.map((c) => `${c.shop.name} — ${c.cart.blockers.join(", ").toLowerCase()}`).join(" · ")}
@@ -111,6 +129,7 @@ export default async function MarketCartPage({ searchParams }: { searchParams: P
                   pickup={c.shop.pickup}
                   pickupAddress={c.shop.pickupAddress}
                   title={c.shop.name}
+                  shop={c.shop.name}
                   header={<MerchantMark name={c.shop.name} logoUrl={c.shop.logoUrl} accent={c.shop.accentColor} size={28} />}
                   placedHref={`/market/cart?placed=${[...placedIds, "{id}"].join(",")}`}
                 />

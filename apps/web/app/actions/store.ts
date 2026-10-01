@@ -94,7 +94,8 @@ export async function confirmOrderAction(slug: string, orderId: string): Promise
     await limit(`order:${customer.id}`, 10, 600);
     return confirmCustomerOrder({ db: db(), store: memoryStore(), merchant: sf.merchant, customer, channel: "web" }, orderId);
   });
-  touch(slug);
+  // No revalidation here: it would refresh the page under the checkout pop-up (the cart
+  // disappears and the pop-up with it). Every caller refreshes the route itself afterwards.
   return res as ActionResult<{ summary: OrderSummaryData; payment: PaymentStart | null; receipt: MemoryReceipt | null }>;
 }
 

@@ -88,6 +88,26 @@ const wash = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="1200" h
 const artCard = await art().resize(630, 630).png().toBuffer();
 await sharp(wash).composite([{ input: artCard, left: 570, top: 0 }]).jpeg({ quality: 86 }).toFile(path.join(out, "nia-og.jpg"));
 
+// Demo-checkout celebration (Telegram sends it with a confetti effect): the artwork, confetti, "Thank you!".
+const confettiColours = ["#5352e0", "#086a82", "#177a53", "#f5b544", "#ffffff", "#e0559d"];
+const confetti = Array.from({ length: 46 }, (_, i) => {
+  // Deterministic scatter around the edges, leaving the face clear.
+  const a = (i * 137.5 * Math.PI) / 180;
+  const r = 300 + ((i * 53) % 90);
+  const x = Math.round(400 + Math.cos(a) * r);
+  const y = Math.round(380 + Math.sin(a) * r * 0.95);
+  const c = confettiColours[i % confettiColours.length];
+  return i % 3 === 0
+    ? `<circle cx="${x}" cy="${y}" r="${7 + (i % 4)}" fill="${c}" stroke="#ffffff" stroke-width="2"/>`
+    : `<rect x="${x}" y="${y}" width="${12 + (i % 5) * 2}" height="${22 + (i % 4) * 3}" rx="3" fill="${c}" stroke="#ffffff" stroke-width="2" transform="rotate(${(i * 47) % 180} ${x} ${y})"/>`;
+}).join("");
+const celebrateOverlay = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800">
+  ${confetti}
+  <rect x="230" y="676" width="340" height="84" rx="42" fill="#ffffff" fill-opacity="0.94"/>
+  <text x="400" y="733" text-anchor="middle" font-family="Segoe UI, Helvetica Neue, Arial, sans-serif" font-size="44" font-weight="800" fill="#1b1a4b">Thank you!</text>
+</svg>`);
+await art().resize(800, 800).composite([{ input: celebrateOverlay }]).jpeg({ quality: 86 }).toFile(path.join(out, "nia-celebrate.jpg"));
+
 // Retire assets of the previous (SVG) mascot.
 for (const old of ["nia-icon.svg", "nia-mascot.svg", "mascot-states.png", "nia-telegram-avatar.png"]) rmSync(path.join(out, old), { force: true });
 

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ExternalLink, Package } from "lucide-react";
 import { Mascot, buttonClasses } from "@nia/ui";
 import { getCustomerBookings, getCustomerRecentOrders, getDraft, orderSummary } from "@nia/commerce";
-import { formatDateTime, formatMoney } from "@nia/shared";
+import { DEMO_PAYMENT_NOTE, formatDateTime, formatMoney, orderProgress } from "@nia/shared";
 import { BookingCard } from "@/components/commerce/cards";
 import { CartEditor } from "@/components/store/cart-editor";
 import { CancelButton } from "@/components/store/cancel-button";
@@ -44,7 +44,15 @@ export default async function OrdersPage({ params, searchParams }: { params: Pro
     <main className="mx-auto max-w-2xl space-y-8 px-4 pt-6 md:px-6">
       <h1 className="text-[clamp(1.75rem,3vw,2.35rem)] leading-tight font-extrabold tracking-[-0.035em] text-balance">Orders</h1>
 
-      {placed ? (
+      {placed && placed.paymentMode === "demo" && placed.paymentStatus === "paid" ? (
+        <div className="rounded-2xl border border-success/25 bg-success-soft p-5" role="status">
+          <p className="font-bold text-success">
+            Order #{placed.number} paid · {orderProgress(placed).headline}
+          </p>
+          {orderProgress(placed).detail ? <p className="mt-1 text-sm">{orderProgress(placed).detail}</p> : null}
+          <p className="mt-1 text-xs text-muted-foreground">{DEMO_PAYMENT_NOTE}</p>
+        </div>
+      ) : placed ? (
         <div className="rounded-2xl border border-success/25 bg-success-soft p-5" role="status">
           <p className="font-bold text-success">Order #{placed.number} placed</p>
           <p className="mt-1 text-sm">{placed.paymentUrl ? `Use order #${placed.number} as the payment reference. ${merchant.name} confirms once payment arrives.` : "The shop will confirm availability and payment details."}</p>
@@ -65,6 +73,7 @@ export default async function OrdersPage({ params, searchParams }: { params: Pro
           delivery={merchant.fulfillment.delivery}
           pickup={merchant.fulfillment.pickup}
           pickupAddress={merchant.fulfillment.pickupAddress ?? null}
+          shop={merchant.name}
         />
       ) : null}
 
@@ -98,13 +107,15 @@ export default async function OrdersPage({ params, searchParams }: { params: Pro
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-semibold">#{o.number}</p>
-                    <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-semibold">{o.statusLabel}</span>
+                    <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-semibold">{orderProgress(o).headline}</span>
+                    {o.paymentMode === "demo" && o.paymentStatus === "paid" ? <span className="rounded-full bg-success-soft px-2 py-0.5 text-xs font-semibold text-success">Paid (demo)</span> : null}
                     {o.memoryAssisted ? <span className="rounded-full bg-memory-soft px-2 py-0.5 text-xs font-semibold text-memory">Reordered with Nia</span> : null}
                   </div>
                   <p className="mt-1 truncate text-sm">{o.items.map((i) => `${i.quantity} × ${i.name}${i.variantLabel ? ` (${i.variantLabel})` : ""}`).join(", ")}</p>
                   <p className="text-sm text-muted-foreground">
                     {formatDateTime(o.submittedAt ?? o.createdAt, { timeZone: merchant.timezone })} · {o.fulfillmentMethod === "pickup" ? "Pickup" : o.deliveryArea ?? "Delivery"}
                   </p>
+                  {orderProgress(o).detail ? <p className="text-sm text-muted-foreground">{orderProgress(o).detail}</p> : null}
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <p className="font-semibold tabular">{o.hasUnpricedItems ? "Quote" : formatMoney(o.total, o.currency, { locale: merchant.locale })}</p>

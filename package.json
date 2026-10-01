@@ -32,6 +32,8 @@
     "brand:landing": "tsx scripts/landing-assets.ts",
     "market:images": "tsx scripts/populate-market-images.ts",
     "db:reset": "tsx packages/database/scripts/reset.ts",
+    "orders:settle-demo": "tsx packages/ai/scripts/settle-demo-orders.ts",
+    "orders:settle-demo:prod": "tsx packages/ai/scripts/settle-demo-orders.ts --production",
     "test:ai": "cross-env NIA_AI_INTEGRATION=1 vitest run packages/ai/test/ai.integration.test.ts"
   },
   "devDependencies": {

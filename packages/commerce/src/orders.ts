@@ -25,6 +25,7 @@ import {
   type FulfillmentMethod,
   type OrderStatus,
 } from "@nia/shared";
+import { deliveryEstimate, isOverdue } from "./delivery";
 import type { OrderLineData, OrderSummaryData } from "./types";
 
 const MAX_QTY = 999;
@@ -70,6 +71,9 @@ export async function orderSummary(db: Db, merchantId: string, orderId: string):
     db.select().from(orderItems).where(eq(orderItems.orderId, order.id)).orderBy(orderItems.createdAt),
     loadMerchant(db, merchantId),
   ]);
+  // Counted from payment (or, before that, from when the customer confirmed).
+  const estimate =
+    order.fulfillmentMethod === "delivery" && ESTIMATED.includes(order.status) ? deliveryEstimate(merchant, order.deliveryArea, order.paidAt ?? order.submittedAt ?? order.createdAt) : null;
   return {
     kind: "order",
     id: order.id,
@@ -90,12 +94,19 @@ export async function orderSummary(db: Db, merchantId: string, orderId: string):
     paymentMode: order.paymentMode,
     paymentStatus: order.paymentStatus,
     paymentUrl: order.paymentUrl,
+    checkout: merchant.isDemo && !order.hasUnpricedItems ? "demo" : "shop",
+    pickupAddress: order.fulfillmentMethod === "pickup" ? (merchant.fulfillment.pickupAddress ?? null) : null,
     memoryAssisted: order.memoryAssisted,
     createdAt: order.createdAt.toISOString(),
     submittedAt: order.submittedAt?.toISOString() ?? null,
+    paidAt: order.paidAt?.toISOString() ?? null,
+    estimate,
+    overdue: isOverdue(order.status, estimate),
     blockers: order.status === "draft" ? blockersFor(order, items, merchant) : [],
   };
 }
+
+const ESTIMATED: OrderStatus[] = ["paid", "processing", "ready", "dispatched"];
 
 async function recalc(db: Db, order: Order): Promise<void> {
   const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));

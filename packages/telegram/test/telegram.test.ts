@@ -38,7 +38,7 @@ function fakeBot(): Bot {
 }
 
 function deps(): TelegramDeps {
-  return { db, store, bot: fakeBot(), appUrl: "https://nia.example", durableWaitMs: 3000 };
+  return { db, store, bot: fakeBot(), appUrl: "https://nia.example", durableWaitMs: 3000, checkoutPauseMs: 0 };
 }
 
 const tgUser = (id: number) => ({ id, is_bot: false, first_name: "Amara", username: `amara${id}` });
@@ -165,8 +165,18 @@ describe("conversation flow", () => {
     sent = [];
     await processUpdate(deps(), callbackUpdate(5003, `oc:${cart.id}`));
     const [order] = await db.select().from(orders).where(eq(orders.id, cart.id));
-    expect(order!.status).toBe("awaiting_confirmation");
-    expect(texts().some((t) => t.includes("Order placed"))).toBe(true);
+    // A demo shop: the payment is simulated and confirmed at once, no owner needed.
+    expect(order!.status).toBe("dispatched");
+    expect(order!.paymentStatus).toBe("paid");
+    expect(order!.paymentMode).toBe("demo");
+    expect(texts()[0]).toMatch(/Confirming your payment with Adire Lane/);
+    const paid = sent.find((s) => s.method === "editMessageText" && String(s.args[2]).includes("Payment confirmed"));
+    expect(String(paid!.args[2])).toMatch(/no real money moves/);
+    // Nia's celebration: her photo with Telegram's confetti effect, and what happens next.
+    const party = sent.find((s) => s.method === "sendPhoto");
+    expect(party!.args[1]).toBe("https://nia.example/brand/nia-celebrate.jpg");
+    expect(String(party!.args[2])).toMatch(/Woohoo! Your order is on its way\.<\/b>\nOn its way to Lekki — Expected/);
+    expect(party!.args[4]).toBe("5046509860389126442");
     expect(texts().some((t) => t.includes("Added to your order history"))).toBe(true);
 
     // Another Telegram user cannot confirm someone else's order.

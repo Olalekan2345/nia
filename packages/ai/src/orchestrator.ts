@@ -148,6 +148,10 @@ export function selectTools(o: {
 const BOOKING_TALK = /\b(?:book(?:ing)?|appointment|slot|schedul\w*|reserv\w*|availab\w*|when can|come in|fitting|session|consult\w*|tailor\w*|sew\w*|alteration)\b/i;
 const ORDER_TALK = /\b(?:buy|order|add|cart|checkout|check out|pay|deliver\w*|pick ?up|collect|ship\w*|quantity|yards?|remove|change|swap|instead)\b/i;
 
+/** Order follow-ups: status, delivery, pickup, a late or missing package. */
+export const ORDER_STATUS_TALK =
+  /\b(?:my orders?|order status|where(?:'s| is) my|track\w*|deliver(?:y|ed)|arriv\w*|(?:has|have)n'?t (?:come|arrived|got)|not (?:come|arrived|received|delivered)|still waiting|pick ?up|collect|refund|replacement|late)\b/i;
+
 /** Model steps per reply. The last one may not call tools, so every reply ends in words. */
 export const MAX_STEPS = 6;
 export function answerOnLastStep({ stepNumber }: { stepNumber: number }): { toolChoice?: "none" } {
@@ -165,11 +169,14 @@ export function selectMarketTools(o: {
   planContext?: boolean;
   saveContext?: boolean;
   listContext?: boolean;
+  /** "Where is my order?", "it hasn't arrived". */
+  orderStatusContext?: boolean;
 }): (keyof MarketTools)[] {
   const tools: (keyof MarketTools)[] = ["searchMarket", "searchMarketServices", "compareProducts", "askDecision"];
   if (o.planContext) tools.push("planBasket");
   if (o.saveContext) tools.push("saveForLater");
   if (o.listContext) tools.push("updateShoppingList");
+  if (o.orderStatusContext && o.signedIn) tools.push("getMyOrders");
   if (o.memoryQuestion && o.signedIn && o.memoryOn) tools.push("showMyMemory");
   else if (o.memoryOn && o.customerHasMemory && !o.recalledCustomer) tools.push("recallCustomerMemory");
   if (o.memoryOn && o.recalledCustomer && o.forgetRequested) tools.push("forgetCustomerMemory");
@@ -342,6 +349,7 @@ export async function prepareTurn(ctx: TurnContext, rawUserText: string, opts: {
           recalledCustomer: customerMemories.length > 0,
           forgetRequested: isForgetRequest(userText),
           signedIn: Boolean(customer),
+          orderStatusContext: ORDER_STATUS_TALK.test(userText),
           ...gates,
         })
       : selectTools({

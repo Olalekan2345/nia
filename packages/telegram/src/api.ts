@@ -55,6 +55,9 @@ export function publicKeyboard(keyboard?: InlineKeyboardMarkup): InlineKeyboardM
   return rows.length ? { inline_keyboard: rows } : undefined;
 }
 
+/** Telegram's built-in message effects (Bot API message_effect_id; private chats). */
+export const TG_EFFECT = { party: "5046509860389126442" } as const;
+
 export const bot = (api: TelegramApi) => ({
   getMe: () => api.call<TgUser>("getMe"),
   getWebhookInfo: () => api.call<TgWebhookInfo>("getWebhookInfo"),
@@ -67,20 +70,23 @@ export const bot = (api: TelegramApi) => ({
     }),
   deleteWebhook: (dropPending = false) => api.call<boolean>("deleteWebhook", { drop_pending_updates: dropPending }),
   getUpdates: (offset: number, timeout = 50) => api.call<TgUpdate[]>("getUpdates", { offset, timeout, allowed_updates: ["message", "callback_query"] }),
-  sendMessage: (chatId: number, text: string, opts: { keyboard?: InlineKeyboardMarkup; html?: boolean; disablePreview?: boolean } = {}) =>
+  /** `effect`: a Telegram message effect id (private chats only), e.g. TG_EFFECT.party. */
+  sendMessage: (chatId: number, text: string, opts: { keyboard?: InlineKeyboardMarkup; html?: boolean; disablePreview?: boolean; effect?: string } = {}) =>
     api.call<TgMessage>("sendMessage", {
       chat_id: chatId,
       text: text.slice(0, 4096),
       ...(opts.html ? { parse_mode: "HTML" } : {}),
+      ...(opts.effect ? { message_effect_id: opts.effect } : {}),
       ...(publicKeyboard(opts.keyboard) ? { reply_markup: publicKeyboard(opts.keyboard) } : {}),
       link_preview_options: { is_disabled: opts.disablePreview ?? true },
     }),
-  sendPhoto: (chatId: number, photo: string, caption: string, keyboard?: InlineKeyboardMarkup) =>
+  sendPhoto: (chatId: number, photo: string, caption: string, keyboard?: InlineKeyboardMarkup, effect?: string) =>
     api.call<TgMessage>("sendPhoto", {
       chat_id: chatId,
       photo,
       caption: caption.slice(0, 1024),
       parse_mode: "HTML",
+      ...(effect ? { message_effect_id: effect } : {}),
       ...(publicKeyboard(keyboard) ? { reply_markup: publicKeyboard(keyboard) } : {}),
     }),
   sendChatAction: (chatId: number, action: "typing" = "typing") => api.call<boolean>("sendChatAction", { chat_id: chatId, action }),

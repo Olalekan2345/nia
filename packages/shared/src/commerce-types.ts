@@ -95,6 +95,28 @@ export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
 export const PAYMENT_MODES = ["merchant_confirmed", "payment_link", "paystack"] as const;
 export type PaymentMode = (typeof PAYMENT_MODES)[number];
+/** How an order was paid. "demo" = the simulated payment of a demo shop (never a merchant setting). */
+export type OrderPaymentMode = PaymentMode | "demo";
+
+/**
+ * Demo shops (merchants.isDemo) are fictional businesses for trying Nia. Their
+ * checkout is simulated so anyone can finish an order without waiting for an
+ * owner: payment is confirmed in a few seconds and no real money moves. Real
+ * shops keep their own payment and confirmation.
+ */
+export const DEMO_PAYMENT_NOTE = "Demo shop: payment is simulated — no real money moves.";
+export const DEMO_SHOP_POLICIES = [
+  {
+    category: "faq",
+    title: "Demo payment",
+    body: "This is a demo shop. When you press Pay on your order, a simulated payment is confirmed in a few seconds (no real money moves). Pickup orders are then ready to collect; delivery orders go out straight away.",
+  },
+  {
+    category: "shipping",
+    title: "Late or missing delivery",
+    body: "If your delivery hasn't arrived within 24 hours of the estimated time, tell Nia or the shop and we send a replacement at no extra cost. Pickup orders are held for 3 days.",
+  },
+] as const;
 
 export const MEMBER_ROLES = ["OWNER", "ADMIN", "STAFF"] as const;
 export type MemberRole = (typeof MEMBER_ROLES)[number];

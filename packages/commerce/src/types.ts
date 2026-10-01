@@ -8,8 +8,8 @@ import type {
   FulfillmentMethod,
   InventoryStatus,
   OfferingKind,
+  OrderPaymentMode,
   OrderStatus,
-  PaymentMode,
   PaymentStatus,
 } from "@nia/shared";
 
@@ -97,12 +97,21 @@ export interface OrderSummaryData {
   hasUnpricedItems: boolean;
   currency: string;
   notes: string | null;
-  paymentMode: PaymentMode;
+  paymentMode: OrderPaymentMode;
   paymentStatus: PaymentStatus;
   paymentUrl: string | null;
+  /** "demo": a demo shop — Pay confirms a simulated payment at once. "shop": the shop confirms and takes payment. */
+  checkout: "demo" | "shop";
+  /** The shop's pickup address (pickup orders). */
+  pickupAddress: string | null;
   memoryAssisted: boolean;
   createdAt: string;
   submittedAt: string | null;
+  paidAt: string | null;
+  /** Delivery estimate from the shop's listed area, once the order is on its way. */
+  estimate: { label: string; expectedBy: string } | null;
+  /** On its way and more than 24 hours past the estimate (the late-delivery policy applies). */
+  overdue: boolean;
   /** Problems that block submission ("Choose delivery or pickup", "Emerald is out of stock"). */
   blockers: string[];
 }
