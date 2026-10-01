@@ -593,6 +593,46 @@ interface MarketToolService {
   shop: { name: string; city: string | null };
 }
 
+type AccountOrder = OrderSummaryData & { shop: { name: string; slug: string } };
+
+/** "What did I buy last?" in Walrus Market: the shopper's real orders, newest first, from every shop. */
+function MyOrders({ orders, actions }: { orders: AccountOrder[]; actions: ChatActions }) {
+  if (orders.length === 0) return null;
+  return (
+    <ul className="space-y-2.5" aria-label="Your recent orders">
+      {orders.slice(0, 3).map((o) => {
+        const p = orderProgress(o);
+        const first = o.items[0];
+        const more = o.items.length > 1 ? ` + ${o.items.length - 1} more` : "";
+        const when = o.submittedAt ? new Intl.DateTimeFormat(actions.locale, { day: "numeric", month: "short", timeZone: actions.timeZone }).format(new Date(o.submittedAt)) : null;
+        return (
+          <li key={o.id} className="nia-enter rounded-3xl border border-ink-900/[0.06] bg-surface p-3.5 shadow-soft">
+            <p className="text-xs font-semibold text-muted-foreground">
+              {o.shop.name} · Order #{o.number}
+              {when ? ` · ${when}` : ""}
+            </p>
+            <p className="mt-1 text-sm font-semibold">{first ? `${first.quantity} × ${first.name}${first.variantLabel ? ` (${first.variantLabel})` : ""}${more}` : "—"}</p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="rounded-full bg-surface-2 px-2 py-0.5 font-semibold">{p.headline}</span>
+              {o.paymentStatus === "paid" ? <span className="rounded-full bg-success-soft px-2 py-0.5 font-semibold text-success">{o.paymentMode === "demo" ? "Paid (demo)" : "Paid"}</span> : null}
+              <span className="ml-auto font-semibold tabular">{o.hasUnpricedItems ? "Quote" : formatMoney(o.total, o.currency, { locale: actions.locale })}</span>
+            </div>
+            {p.detail ? <p className="mt-1 text-xs text-muted-foreground">{p.detail}</p> : null}
+            <div className="mt-2.5 flex flex-wrap gap-2">
+              <Link href={`/s/${o.shop.slug}/orders`} className={buttonClasses({ size: "sm", variant: "secondary" })}>
+                View order
+              </Link>
+              <Link href={`/s/${o.shop.slug}/chat?q=${encodeURIComponent(`Same as my order #${o.number}, please`)}&send=1`} className={buttonClasses({ size: "sm", variant: "ghost" })}>
+                Order again
+              </Link>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function MarketServiceResults({ services, actions }: { services: MarketToolService[]; actions: ChatActions }) {
   if (services.length === 0) return null;
   return (
@@ -757,6 +797,9 @@ export function ToolParts({ parts, actions, latest = true, asked }: { parts: Too
           break;
         }
         nodes.push(<MarketResults key={p.toolCallId} products={(o.products as MarketToolProduct[]) ?? []} actions={actions} />);
+        break;
+      case "getMyOrders":
+        nodes.push(<MyOrders key={p.toolCallId} orders={(o.orders as AccountOrder[]) ?? []} actions={actions} />);
         break;
       case "searchMarketServices":
         nodes.push(<MarketServiceResults key={p.toolCallId} services={(o.services as MarketToolService[]) ?? []} actions={actions} />);

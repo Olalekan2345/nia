@@ -123,9 +123,12 @@ describe("demo checkout", () => {
     expect(String(seen.orders[0]!.progress)).toMatch(/^On its way to Yaba — Expected by /);
     expect(String(seen.orders[0]!.deliveryPolicy)).toMatch(/within 24 hours of the estimated time/);
 
-    // Not offered for ordinary shopping, nor to guests.
-    const browse = await prepareTurn({ db, store, merchant: market, customer: marketCustomer, conversation, channel: "web" }, "Show me ankara fabric");
-    expect(browse.activeTools).not.toContain("getMyOrders");
+    // Any way of asking works for a signed-in shopper ("what did I buy last?" has no order words) — never for guests.
+    for (const q of ["what did i buy last?", "Show me ankara fabric"]) {
+      expect((await prepareTurn({ db, store, merchant: market, customer: marketCustomer, conversation, channel: "web" }, q)).activeTools).toContain("getMyOrders");
+    }
+    const latest = (await (turn.tools as unknown as MarketTools).getMyOrders.execute!({}, opts)) as { orders: { items: { name: string }[]; shop: { name: string } }[] };
+    expect(latest.orders[0]).toMatchObject({ shop: { name: "Adire Lane" }, items: [{ name: "Classic Ankara Wax Print" }] });
     const guest = await createConversation(db, { merchantId: market.id, customerId: null, channel: "web" });
     expect((await prepareTurn({ db, store, merchant: market, customer: null, conversation: guest, channel: "web" }, text)).activeTools).not.toContain("getMyOrders");
   });

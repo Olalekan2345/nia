@@ -176,7 +176,7 @@ export function createMarketTools(scope: NiaToolScope) {
     }),
 
     getMyOrders: tool({
-      description: "The shopper's recent orders at every shop: progress, delivery estimate, whether it's overdue, and that shop's delivery policy.",
+      description: "The shopper's recent orders at every shop, newest first: what they bought, when, progress, delivery estimate, overdue, and that shop's delivery policy.",
       inputSchema: z.object({}),
       execute: () =>
         guard(async () => {
