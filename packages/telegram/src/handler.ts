@@ -64,7 +64,7 @@ import {
   type AskedDecision,
 } from "@nia/ai";
 import { safeEqual } from "@nia/shared/server";
-import { formatMoney, isAppError } from "@nia/shared";
+import { formatMoney, isAppError, namedProduct } from "@nia/shared";
 import { TG_EFFECT, type Bot } from "./api";
 import {
   alternativesText,
@@ -614,6 +614,10 @@ type ToolOutputs = {
   alternatives?: { title: string; options: { name: string; variantName: string | null; reason: string; priceLabel?: string }[] }[];
   /** This shop's search found nothing — offer the whole market. */
   emptySearch?: boolean;
+  /** The product the customer looked at (getProduct) — the one card to show. */
+  looked?: ProductCardData;
+  /** The search words Nia used, to spot a product asked about by name. */
+  queries?: string[];
 };
 
 function collectOutputs(steps: { toolResults: { toolName: string; input: unknown; output: unknown }[] }[]): ToolOutputs {
@@ -627,6 +631,8 @@ function collectOutputs(steps: { toolResults: { toolName: string; input: unknown
         if (alts?.length) (out.alternatives ??= []).push({ title: `${String(o.error ?? "Unavailable")} — alternatives`, options: alts });
         continue;
       }
+      const query = (r.input as { query?: unknown } | null)?.query;
+      if (typeof query === "string") (out.queries ??= []).push(query);
       switch (r.toolName) {
         case "searchMarket":
           out.market = o.products as MarketResultView[];
@@ -659,7 +665,7 @@ function collectOutputs(steps: { toolResults: { toolName: string; input: unknown
           if (!out.products?.length) out.emptySearch = true;
           break;
         case "getProduct":
-          out.products = [o.product as ProductCardData];
+          out.looked = o.product as ProductCardData;
           if ((o.alternatives as unknown[] | undefined)?.length) (out.alternatives ??= []).push({ title: "Not available right now — alternatives", options: o.alternatives as NonNullable<ToolOutputs["alternatives"]>[number]["options"] });
           break;
         case "searchServices":
@@ -688,14 +694,26 @@ function collectOutputs(steps: { toolResults: { toolName: string; input: unknown
   return out;
 }
 
-async function sendCards(c: ChatContext, merchant: Merchant, outputs: ToolOutputs): Promise<void> {
+/** Other finds, under the product the customer asked about: one tap asks Nia about each. */
+async function sendSimilar(c: ChatContext, items: { id: string; name: string }[]): Promise<void> {
+  if (!items.length) return;
+  await c.deps.bot.sendMessage(c.chatId, "Not quite right? Similar items:", { keyboard: { inline_keyboard: items.slice(0, 3).map((p) => [{ text: p.name.slice(0, 60), callback_data: CB.askProduct(p.id) }]) } });
+}
+
+async function sendCards(c: ChatContext, merchant: Merchant, outputs: ToolOutputs, asked?: string): Promise<void> {
   const { bot, appUrl } = c.deps;
-  for (const p of (outputs.products ?? []).slice(0, 3)) {
+  // Asked about one product by name: show that one; the rest are suggestions.
+  const texts = [asked, ...(outputs.queries ?? [])];
+  const hits = outputs.products ?? [];
+  const focus = outputs.looked ?? namedProduct(hits, texts);
+  const marketFocus = namedProduct(outputs.market ?? [], texts);
+  for (const p of focus ? [focus] : hits.slice(0, 3)) {
     const keyboard: InlineKeyboardMarkup = { inline_keyboard: [[{ text: "View in shop", url: storefrontUrl(appUrl, merchant, `/shop/${p.slug}`) }]] };
     const caption = productCaption(p, merchant.locale);
     if (p.image && /^https:\/\//.test(p.image)) await bot.sendPhoto(c.chatId, p.image, caption, keyboard);
     else await bot.sendMessage(c.chatId, caption, { html: true, keyboard });
   }
+  if (focus) await sendSimilar(c, hits.filter((p) => p.id !== focus.id));
   for (const s of (outputs.services ?? []).slice(0, 3)) {
     await bot.sendMessage(c.chatId, serviceCaption(s, merchant.locale, merchant.timezone), {
       html: true,
@@ -727,7 +745,7 @@ async function sendCards(c: ChatContext, merchant: Merchant, outputs: ToolOutput
 
   // Walrus Market results: each links to the shop's page on the web.
   if (!outputs.compare) {
-    for (const p of (outputs.market ?? []).slice(0, 3)) {
+    for (const p of marketFocus ? [marketFocus] : (outputs.market ?? []).slice(0, 3)) {
       // View it on the web, or carry on chatting with that shop right here.
       const keyboard: InlineKeyboardMarkup = {
         inline_keyboard: [[{ text: `View at ${p.shop.name}`.slice(0, 60), url: `${appUrl}${p.url}` }, ...(p.shop.slug ? [{ text: "💬 Chat with shop", callback_data: CB.shop(p.shop.slug) }] : [])]],
@@ -735,6 +753,7 @@ async function sendCards(c: ChatContext, merchant: Merchant, outputs: ToolOutput
       if (p.image && /^https:\/\//.test(p.image)) await bot.sendPhoto(c.chatId, p.image, marketCaption(p), keyboard);
       else await bot.sendMessage(c.chatId, marketCaption(p), { html: true, keyboard });
     }
+    if (marketFocus) await sendSimilar(c, (outputs.market ?? []).filter((p) => p.id !== marketFocus.id));
   }
   if (outputs.compare?.products.length) await bot.sendMessage(c.chatId, compareText(outputs.compare.products, outputs.compare.rows), { html: true });
   if (outputs.basket) {
@@ -829,7 +848,7 @@ export async function runTurn(c: ChatContext, merchant: Merchant, text: string, 
     if (customerMemories > 0) reply += `\n\n<i>🧠 ${customerMemories === 1 ? "Remembered from a previous visit" : `${customerMemories} memories used`}</i>`;
     if (outputs.signInRequired) reply += `\n\n<i>Link your web account (/link) so I can manage orders here.</i>`;
     await bot.sendMessage(c.chatId, reply, { html: true });
-    await sendCards(c, merchant, outputs);
+    await sendCards(c, merchant, outputs, text);
     if (merchant.kind === "shop" && outputs.emptySearch && !outputs.products?.length && (await marketRow(db))) {
       await bot.sendMessage(c.chatId, `Not something ${escapeHtml(merchant.name)} has? I can look across every shop.`, {
         html: true,
@@ -1140,6 +1159,14 @@ async function handleCallback(deps: TelegramDeps, q: TgCallbackQuery): Promise<v
           });
           await confirm();
         }
+        return;
+      }
+      case "ap": {
+        // A suggested product: ask Nia about it, as if the customer had typed it.
+        await bot.answerCallbackQuery(q.id).catch(() => {});
+        if (!/^[0-9a-f-]{36}$/i.test(arg)) return;
+        const [p] = await db.select({ name: products.name, shop: merchants.name }).from(products).innerJoin(merchants, eq(merchants.id, products.merchantId)).where(eq(products.id, arg));
+        if (p) return runTurn(c, merchant, merchant.kind === "market" ? `Tell me more about the ${p.name} from ${p.shop}` : `Tell me more about the ${p.name}`);
         return;
       }
       case "oe": {

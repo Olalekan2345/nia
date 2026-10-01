@@ -4,10 +4,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { CalendarCheck, Check, ExternalLink, Loader2, Minus, PackageCheck, Plus, Search, ShoppingCart } from "lucide-react";
 import { Button, Select, buttonClasses, cn } from "@nia/ui";
-import { DEMO_PAYMENT_NOTE, formatMoney, formatPriceRange, orderProgress, type InventoryStatus } from "@nia/shared";
+import { DEMO_PAYMENT_NOTE, formatMoney, formatPriceRange, namedProduct, orderProgress, type InventoryStatus } from "@nia/shared";
 import type { BookingSummaryData, OrderSummaryData, PaymentStart, ProductCardData, ServiceCardData, SlotData } from "@nia/commerce";
 import type { MemoryReceiptView } from "@nia/ai";
-import { BookingCard, OrderSummaryCard, ProductCard, ServiceCard } from "@/components/commerce/cards";
+import { BookingCard, OrderSummaryCard, ProductCard, ServiceCard, productPriceLabel } from "@/components/commerce/cards";
 import { bookingOutcome, CheckoutCelebration, orderOutcome, withMinimumWait } from "@/components/commerce/checkout-celebration";
 import { ProductVisual } from "@/components/commerce/product-visual";
 import { CompareToggle } from "@/components/market/compare-controls";
@@ -195,6 +195,55 @@ function ProductResults({ products, actions }: { products: ProductCardData[]; ac
     </ul>
   );
 }
+
+interface SimilarItem {
+  id: string;
+  name: string;
+  category: string | null;
+  image: string | null;
+  price: string;
+  href: string;
+  /** What tapping the tile asks Nia. */
+  ask: string;
+  shop?: string;
+}
+
+/**
+ * When the customer asked about one product, the others found alongside it are
+ * only suggestions: a small row under the main card, never cards of their own.
+ */
+function SimilarItems({ items, actions }: { items: SimilarItem[]; actions: ChatActions }) {
+  if (items.length === 0) return null;
+  return (
+    <section aria-label="Similar items" className="rounded-3xl border border-ink-900/[0.06] bg-surface/70 p-3">
+      <p className="px-1 text-xs font-semibold text-muted-foreground">Not quite right? Similar items</p>
+      <ul className="mt-2 flex gap-2 overflow-x-auto pb-1">
+        {items.slice(0, 4).map((i) => (
+          <li key={i.id} className="flex w-32 shrink-0 flex-col gap-1">
+            <button
+              type="button"
+              disabled={actions.busy}
+              onClick={() => actions.send(i.ask)}
+              aria-label={`Ask Nia about ${i.name}`}
+              className="flex w-full flex-col gap-1.5 rounded-2xl p-1.5 text-left transition-colors duration-100 hover:bg-surface-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
+            >
+              <ProductVisual name={i.name} category={i.category} image={i.image} className="w-full" />
+              <span className="line-clamp-2 text-xs leading-snug font-semibold">{i.name}</span>
+              <span className="text-xs text-muted-foreground tabular">{i.price}</span>
+              {i.shop ? <span className="truncate text-[11px] text-muted-foreground">{i.shop}</span> : null}
+            </button>
+            <Link href={i.href} className="px-1.5 text-xs font-semibold text-accent-strong hover:underline">
+              View
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+const ok = (p: ToolPart) => p.state === "output-available" && p.output && p.output.ok !== false;
+const uniqueById = <T extends { id: string }>(list: T[]) => list.filter((x, i) => list.findIndex((y) => y.id === x.id) === i);
 
 /* ─────────────────────────────── Services & booking ─────────────────────────────── */
 
@@ -645,13 +694,39 @@ function DecisionChips({ question, options, actions, latest }: { question: strin
 const CART_TOOLS = new Set(["createDraftOrder", "addItemToDraft", "updateDraftItem", "removeDraftItem", "setFulfillment"]);
 
 /** Render all tool parts of one assistant message. Cart updates collapse into the latest state. */
-export function ToolParts({ parts, actions, latest = true }: { parts: ToolPart[]; actions: ChatActions; latest?: boolean }) {
+export function ToolParts({ parts, actions, latest = true, asked }: { parts: ToolPart[]; actions: ChatActions; latest?: boolean; asked?: string }) {
   const nodes: React.ReactNode[] = [];
   const hasSummary = parts.some((p) => p.type === "tool-showOrderSummary" && p.state === "output-available" && p.output?.ok);
   const lastCart = [...parts].reverse().find((p) => CART_TOOLS.has(p.type.slice(5)) && p.state === "output-available" && p.output?.ok);
   // If the model re-planned within one reply, only its final basket is shown.
   const lastBasket = [...parts].reverse().find((p) => p.type === "tool-planBasket" && p.state === "output-available" && p.output?.ok);
   let signInShown = false;
+
+  // Asked about one product by name ("Tell me more about the Vanilla Celebration Cake")?
+  // Then it gets the card, and anything else found alongside is a suggestion below it.
+  const texts = [asked, ...parts.map((p) => (typeof p.input?.query === "string" ? p.input.query : null))];
+  const looked = parts.find((p) => p.type === "tool-getProduct" && ok(p))?.output?.product as ProductCardData | undefined;
+  const shopHits = uniqueById(parts.filter((p) => p.type === "tool-searchProducts" && ok(p)).flatMap((p) => (p.output?.products as ProductCardData[]) ?? []));
+  const marketHits = uniqueById(parts.filter((p) => p.type === "tool-searchMarket" && ok(p)).flatMap((p) => (p.output?.products as MarketToolProduct[]) ?? []));
+  const shopFocus = looked ?? namedProduct(shopHits, texts);
+  const marketFocus = namedProduct(marketHits, texts);
+  const similarShop: SimilarItem[] = shopFocus
+    ? shopHits
+        .filter((p) => p.id !== shopFocus.id)
+        .map((p) => ({ id: p.id, name: p.name, category: p.category, image: p.image, price: productPriceLabel(p, actions.locale), href: `/s/${actions.slug}/shop/${p.slug}`, ask: `Tell me more about the ${p.name}` }))
+    : [];
+  const similarMarket: SimilarItem[] = marketFocus
+    ? marketHits
+        .filter((p) => p.id !== marketFocus.id)
+        .map((p) => ({ id: p.id, name: p.name, category: p.category, image: p.image, price: productPriceLabel(p, actions.locale), href: p.url, ask: `Tell me more about the ${p.name} from ${p.shop.name}`, shop: p.shop.name }))
+    : [];
+  let focusShown = false;
+  const showShopFocus = (key: string) => {
+    if (focusShown || !shopFocus) return;
+    focusShown = true;
+    nodes.push(<ProductResults key={key} products={[shopFocus]} actions={actions} />);
+    if (similarShop.length) nodes.push(<SimilarItems key={`${key}-similar`} items={similarShop} actions={actions} />);
+  };
 
   for (const p of parts) {
     const name = p.type.slice(5);
@@ -674,6 +749,13 @@ export function ToolParts({ parts, actions, latest = true }: { parts: ToolPart[]
     }
     switch (name) {
       case "searchMarket":
+        if (marketFocus) {
+          if (focusShown) break;
+          focusShown = true;
+          nodes.push(<MarketResults key={p.toolCallId} products={[marketFocus]} actions={actions} />);
+          if (similarMarket.length) nodes.push(<SimilarItems key={`${p.toolCallId}-similar`} items={similarMarket} actions={actions} />);
+          break;
+        }
         nodes.push(<MarketResults key={p.toolCallId} products={(o.products as MarketToolProduct[]) ?? []} actions={actions} />);
         break;
       case "searchMarketServices":
@@ -698,10 +780,11 @@ export function ToolParts({ parts, actions, latest = true }: { parts: ToolPart[]
         nodes.push(<DecisionChips key={p.toolCallId} question={String(o.question)} options={(o.options as string[]) ?? []} actions={actions} latest={latest} />);
         break;
       case "searchProducts":
-        nodes.push(<ProductResults key={p.toolCallId} products={(o.products as ProductCardData[]) ?? []} actions={actions} />);
+        if (shopFocus) showShopFocus(p.toolCallId);
+        else nodes.push(<ProductResults key={p.toolCallId} products={(o.products as ProductCardData[]) ?? []} actions={actions} />);
         break;
       case "getProduct": {
-        nodes.push(<ProductResults key={p.toolCallId} products={[o.product as ProductCardData]} actions={actions} />);
+        showShopFocus(p.toolCallId);
         const alts = (o.alternatives as AlternativeView[] | undefined) ?? [];
         if (alts.length) nodes.push(<Alternatives key={`${p.toolCallId}-alt`} title="Not available right now — alternatives" options={alts} actions={actions} />);
         break;

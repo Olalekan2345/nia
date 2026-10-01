@@ -423,3 +423,30 @@ describe("one cart on Telegram", () => {
     expect(texts()[0]).toMatch(/cart is empty/);
   });
 });
+
+describe("asking about one product", () => {
+  it("shows the product asked about, and the other finds only as suggestions to tap", async () => {
+    setModelOverrides({ chat: scriptedModel([{ toolCalls: [{ name: "searchProducts", input: { query: "linen" } }] }, { text: "It's a relaxed linen kaftan." }]) });
+    await processUpdate(deps(), textUpdate(7401, `/start s_${shop.slug}`));
+    sent = [];
+    await processUpdate(deps(), textUpdate(7401, "Tell me more about the Midnight Linen Kaftan"));
+    const all = texts().join("\n");
+    expect(all).toContain("Midnight Linen Kaftan");
+    // The shirt the search also found is a suggestion button, not a card of its own.
+    expect(all).not.toMatch(/<b>Everyday Linen Shirt<\/b>/);
+    const similar = sent.find((s) => String(s.args[1]).startsWith("Not quite right? Similar items"));
+    const buttons = JSON.stringify(similar?.args[2]);
+    expect(buttons).toContain("Everyday Linen Shirt");
+    const ap = /"callback_data":"(ap:[0-9a-f-]{36})"/.exec(buttons)?.[1];
+    expect(ap).toBeTruthy();
+
+    // Tapping it asks Nia about that product.
+    setModelOverrides({ chat: scriptedModel([{ text: "The Everyday Linen Shirt is breathable." }]) });
+    sent = [];
+    await processUpdate(deps(), callbackUpdate(7401, ap!));
+    const [identity] = await db.select().from(telegramIdentities).where(eq(telegramIdentities.telegramUserId, 7401));
+    const said = await db.select().from(messages).where(and(eq(messages.conversationId, identity!.activeConversationId!), eq(messages.role, "user")));
+    expect(said.map((m) => m.content)).toContain("Tell me more about the Everyday Linen Shirt");
+    expect(texts().join("\n")).toContain("breathable");
+  });
+});

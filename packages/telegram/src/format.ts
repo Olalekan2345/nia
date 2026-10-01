@@ -41,6 +41,8 @@ export const CB = {
   shop: (slug: string) => `s:${slug.slice(0, 60)}`,
   /** Tap the i-th option of Nia's last decision question. */
   decision: (i: number) => `ad:${i}`,
+  /** Ask Nia about one product (a suggestion under the product the customer asked about). */
+  askProduct: (productId: string) => `ap:${productId}`,
   /** Add the proposed basket to each shop's cart. */
   basket: () => "pb",
   /** Switch to a shop and review its cart. */

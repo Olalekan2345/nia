@@ -277,6 +277,7 @@ export function ChatView(props: ChatViewProps) {
                 key={m.id}
                 message={m}
                 actions={actions}
+                asked={messageText(messages[idx - 1])}
                 streaming={busy && idx === messages.length - 1}
                 latest={idx === messages.length - 1}
                 showExtraction={Boolean(props.showExtraction)}
@@ -421,11 +422,17 @@ function EmptyState({
   );
 }
 
-function UserBubble({ message }: { message: NiaUIMessage }) {
-  const text = message.parts
+/** The words a customer typed (for the reply after it: which product they asked about). */
+function messageText(message: NiaUIMessage | undefined): string | undefined {
+  if (!message || message.role !== "user") return undefined;
+  return message.parts
     .filter((p) => p.type === "text")
     .map((p) => (p as { text: string }).text)
     .join("\n");
+}
+
+function UserBubble({ message }: { message: NiaUIMessage }) {
+  const text = messageText(message) ?? "";
   return (
     <div className="nia-enter flex justify-end">
       <p className="max-w-[85%] rounded-[22px] rounded-br-md bg-primary px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap text-primary-foreground shadow-[0_10px_24px_-18px_rgb(27_26_75/0.8)]">{text}</p>
@@ -436,6 +443,7 @@ function UserBubble({ message }: { message: NiaUIMessage }) {
 function AssistantMessage({
   message,
   actions,
+  asked,
   streaming,
   latest,
   showExtraction,
@@ -443,6 +451,8 @@ function AssistantMessage({
 }: {
   message: NiaUIMessage;
   actions: ChatActions;
+  /** The customer message this replies to. */
+  asked?: string;
   streaming: boolean;
   latest: boolean;
   showExtraction: boolean;
@@ -467,7 +477,7 @@ function AssistantMessage({
           <Markdown text={text} />
         </div>
       ) : null}
-      {tools.length ? <ToolParts parts={tools} actions={actions} latest={latest} /> : null}
+      {tools.length ? <ToolParts parts={tools} actions={actions} latest={latest} asked={asked} /> : null}
       {notice && notice.data.kind === "sign_in_required" ? (
         <p className="text-xs text-muted-foreground">
           <Link href={actions.signInHref} className="font-semibold text-accent-strong hover:underline">

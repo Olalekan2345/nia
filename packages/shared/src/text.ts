@@ -85,3 +85,22 @@ export function formatRelative(date: Date | string, now: Date = new Date()): str
   if (abs < 86400 * 365) return rtf.format(Math.round(diff / (86400 * 30)), "month");
   return rtf.format(Math.round(diff / (86400 * 365)), "year");
 }
+
+const phrase = (s: string) => ` ${s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim()} `;
+
+/**
+ * The one product a message is about, when it names it ("Tell me more about the
+ * Vanilla Celebration Cake"): the product whose full name appears in any of the
+ * texts, preferring the longest name, so "Vanilla Celebration Cake" wins over
+ * "Celebration Cake". General searches ("cakes for a birthday") name none → null.
+ */
+export function namedProduct<T extends { id: string; name: string }>(products: T[], texts: (string | null | undefined)[]): T | null {
+  const haystacks = texts.filter((t): t is string => Boolean(t && t.trim())).map(phrase);
+  let best: T | null = null;
+  for (const p of products) {
+    const name = phrase(p.name);
+    if (name.trim().length < 3 || !haystacks.some((h) => h.includes(name))) continue;
+    if (!best || name.length > phrase(best.name).length) best = p;
+  }
+  return best;
+}
