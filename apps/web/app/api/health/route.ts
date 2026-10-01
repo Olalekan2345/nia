@@ -38,7 +38,7 @@ export async function GET() {
   const body = {
     status: database.ok && ai.configured && walrus.ok ? "ok" : "degraded",
     database: { ok: database.ok, latencyMs: database.ms, ...(database.ok ? {} : { error: database.error }) },
-    ai: { configured: ai.configured, provider: ai.provider ?? null, model: ai.model ?? null, missing: ai.missing },
+    ai: { configured: ai.configured, provider: ai.provider ?? null, model: ai.model ?? null, backup: ai.fallback ? `${ai.fallback.provider}/${ai.fallback.model}` : null, missing: ai.missing },
     walrus,
     telegram: tg.configured
       ? telegram && telegram.ok

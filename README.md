@@ -76,6 +76,7 @@ Keys you need in `.env` (full list in [.env.example](.env.example)):
 |---|---|
 | `MEMWAL_PRIVATE_KEY`, `MEMWAL_ACCOUNT_ID` | [memory.walrus.xyz](https://memory.walrus.xyz) → create account → add a **delegate** key |
 | `AI_PROVIDER=groq`, `AI_MODEL=qwen/qwen3.8-27b`, `AI_API_KEY` | [Groq console](https://console.groq.com/keys) (or Google AI Studio / Mistral / DeepSeek / any OpenAI-compatible endpoint) |
+| Optional backup: `AI_FALLBACK_PROVIDER=google`, `AI_FALLBACK_MODEL=gemini-3.5-flash-lite`, `AI_FALLBACK_API_KEY` | A free [Google AI Studio](https://aistudio.google.com) key. Any request the main model refuses (daily limit, overload, outage, a broken tool call) goes to the backup, so customers get an answer instead of "try again later". Empty key = no backup. |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_WEBHOOK_SECRET` | @BotFather — enables **Continue with Telegram** sign-in and the bot (without it, sign-in is email-only) |
 | `RESEND_API_KEY`, `EMAIL_FROM` | [resend.com](https://resend.com) — required in production for sign-in codes. Locally, codes print in the dev server console. |
 | `DATABASE_URL`, `AUTH_SECRET`, `APP_URL` | Local defaults in `.env.example`; production: Neon/Supabase + 32-char secret |

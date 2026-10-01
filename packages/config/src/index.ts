@@ -36,6 +36,16 @@ const EnvSchema = z.object({
   AI_API_KEY: optional,
   /** Base URL for the openai-compatible provider (e.g. Qwen via DashScope or OpenRouter). */
   AI_BASE_URL: optional,
+  /**
+   * Backup model, used for any request the main one refuses (daily limit, outage).
+   * e.g. AI_FALLBACK_PROVIDER=google + AI_FALLBACK_API_KEY (a free Gemini key; the model
+   * defaults to gemini-3.5-flash-lite), or MISTRAL_API_KEY alone for Mistral. Off with no key.
+   */
+  AI_FALLBACK_PROVIDER: optional,
+  AI_FALLBACK_MODEL: optional,
+  AI_FALLBACK_API_KEY: optional,
+  AI_FALLBACK_BASE_URL: optional,
+  MISTRAL_API_KEY: optional,
 
   MEMWAL_PRIVATE_KEY: optional,
   MEMWAL_ACCOUNT_ID: optional,
@@ -141,7 +151,18 @@ export interface AiConfig {
   extractionModel?: string;
   apiKey?: string;
   baseUrl?: string;
+  /** Backup provider for requests the main one refuses; null when not set up. */
+  fallback: { provider: AiProviderName; model: string; apiKey: string; baseUrl?: string } | null;
   missing: string[];
+}
+
+function fallbackConfig(e: Env): AiConfig["fallback"] {
+  const provider = (e.AI_FALLBACK_PROVIDER ?? (e.MISTRAL_API_KEY ? "mistral" : undefined)) as AiProviderName | undefined;
+  if (!provider || !AI_PROVIDERS.includes(provider)) return null;
+  const apiKey = e.AI_FALLBACK_API_KEY ?? (provider === "mistral" ? e.MISTRAL_API_KEY : undefined);
+  const model = e.AI_FALLBACK_MODEL ?? ({ mistral: "mistral-medium-latest", google: "gemini-3.5-flash-lite" } as Partial<Record<AiProviderName, string>>)[provider];
+  if (!apiKey || !model || (provider === "openai-compatible" && !e.AI_FALLBACK_BASE_URL)) return null;
+  return { provider, model, apiKey, baseUrl: e.AI_FALLBACK_BASE_URL };
 }
 
 export function aiConfig(): AiConfig {
@@ -160,6 +181,7 @@ export function aiConfig(): AiConfig {
     extractionModel: e.AI_EXTRACTION_MODEL ?? e.AI_MODEL,
     apiKey: e.AI_API_KEY,
     baseUrl: e.AI_BASE_URL,
+    fallback: fallbackConfig(e),
     missing,
   };
 }

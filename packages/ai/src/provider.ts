@@ -3,34 +3,43 @@
  * hackathon build defaults to a non-OpenAI / non-Anthropic model (Gemini,
  * Mistral, DeepSeek, or Qwen via any OpenAI-compatible endpoint).
  */
-import type { LanguageModel } from "ai";
+import { wrapLanguageModel, type LanguageModel } from "ai";
 import { createGoogle } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createMistral } from "@ai-sdk/mistral";
 import { createDeepSeek } from "@ai-sdk/deepseek";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import { aiConfig } from "@nia/config";
+import { aiConfig, type AiProviderName } from "@nia/config";
 import { AppError } from "@nia/shared";
 
 const globalForModel = globalThis as unknown as { __niaChatModel?: LanguageModel; __niaExtractionModel?: LanguageModel };
 
+type ModelV4 = ReturnType<typeof wrapLanguageModel>;
+
+function buildFor(provider: AiProviderName, apiKey: string | undefined, baseUrl: string | undefined, modelId: string): ModelV4 {
+  switch (provider) {
+    case "groq":
+      return createGroq({ apiKey })(modelId);
+    case "google":
+      return createGoogle({ apiKey })(modelId);
+    case "mistral":
+      return createMistral({ apiKey })(modelId);
+    case "deepseek":
+      return createDeepSeek({ apiKey })(modelId);
+    case "openai-compatible":
+      return createOpenAICompatible({ name: "nia-compatible", baseURL: baseUrl!, apiKey }).chatModel(modelId);
+  }
+}
+
+/** The configured model — with the backup behind it when one is set up. */
 function build(modelId: string): LanguageModel {
   const cfg = aiConfig();
   if (!cfg.configured || !cfg.provider) {
     throw new AppError("NOT_CONFIGURED", `AI provider not configured (missing: ${cfg.missing.join(", ")})`);
   }
-  switch (cfg.provider) {
-    case "groq":
-      return createGroq({ apiKey: cfg.apiKey })(modelId);
-    case "google":
-      return createGoogle({ apiKey: cfg.apiKey })(modelId);
-    case "mistral":
-      return createMistral({ apiKey: cfg.apiKey })(modelId);
-    case "deepseek":
-      return createDeepSeek({ apiKey: cfg.apiKey })(modelId);
-    case "openai-compatible":
-      return createOpenAICompatible({ name: "nia-compatible", baseURL: cfg.baseUrl!, apiKey: cfg.apiKey }).chatModel(modelId);
-  }
+  const primary = buildFor(cfg.provider, cfg.apiKey, cfg.baseUrl, modelId);
+  const b = cfg.fallback;
+  return b ? withFallback(primary, buildFor(b.provider, b.apiKey, b.baseUrl, b.model), `${b.provider}/${b.model}`) : primary;
 }
 
 export function getChatModel(): LanguageModel {
@@ -44,6 +53,97 @@ export function getExtractionModel(): LanguageModel {
   return build(cfg.extractionModel ?? cfg.model!);
 }
 
+/**
+ * Worth a second try elsewhere: rate or daily limits, request too large for the
+ * plan, overload and outages — and Groq's 400 when the model produced a tool call
+ * it couldn't parse. Anything else (a real bad request) is not retried.
+ */
+export function shouldFallBack(err: unknown): boolean {
+  const e = err as { statusCode?: number; message?: string; responseBody?: string } | null;
+  const status = e?.statusCode;
+  const text = `${e?.message ?? ""} ${e?.responseBody ?? ""}`;
+  if (status === 429 || status === 413 || status === 498 || (status != null && status >= 500)) return true;
+  if (status === 400) return /tool_use_failed|failed to call a function|output_parse_failed/i.test(text);
+  return status == null && /fetch failed|ECONNRESET|ETIMEDOUT|socket hang up/i.test(text);
+}
+
+/**
+ * Some providers (Mistral) only accept tool-call ids of 9 letters/digits. When a
+ * reply started on the main model and continues on the backup, earlier steps'
+ * ids are rewritten — the same id always maps to the same replacement.
+ */
+export function normalizeToolCallIds(params: Parameters<ModelV4["doGenerate"]>[0]): Parameters<ModelV4["doGenerate"]>[0] {
+  const ids = new Map<string, string>();
+  const short = (id: string) => {
+    if (/^[A-Za-z0-9]{9}$/.test(id)) return id;
+    let v = ids.get(id);
+    if (!v) {
+      let h = 0;
+      for (const ch of id) h = (Math.imul(h, 31) + ch.charCodeAt(0)) >>> 0;
+      v = `${h.toString(36)}${ids.size.toString(36)}`.padStart(9, "0").slice(-9);
+      ids.set(id, v);
+    }
+    return v;
+  };
+  const prompt = params.prompt.map((m) =>
+    Array.isArray(m.content)
+      ? { ...m, content: m.content.map((part) => ("toolCallId" in part && typeof part.toolCallId === "string" ? { ...part, toolCallId: short(part.toolCallId) } : part)) }
+      : m,
+  ) as typeof params.prompt;
+  return { ...params, prompt };
+}
+
+/** The backup itself is rate-limited (Mistral's free plan: ~1 request/second): one short wait, then give up. */
+async function backupCall<T>(call: () => PromiseLike<T>): Promise<T> {
+  try {
+    return await call();
+  } catch (err) {
+    if ((err as { statusCode?: number })?.statusCode !== 429) throw err;
+    await new Promise((r) => setTimeout(r, 1500));
+    return call();
+  }
+}
+
+/**
+ * Main model with a backup: any request the main one refuses (see shouldFallBack)
+ * goes to the backup straight away, so the customer gets an answer instead of
+ * "try again later". Each step of a reply is its own request, so a reply can
+ * start on one and finish on the other.
+ */
+export function withFallback(primary: ModelV4, backup: ModelV4, label = "backup"): ModelV4 {
+  // Both refused: report the main model's error — its "try again in 21m" is what the customer should hear.
+  const gaveUp =
+    (main: unknown) =>
+    (backupErr: unknown): never => {
+      console.warn(`[ai] ${label} failed too: ${String((backupErr as Error)?.message ?? backupErr).slice(0, 160)}`);
+      throw main;
+    };
+  const note = (err: unknown) => console.warn(`[ai] main model refused (${(err as { statusCode?: number })?.statusCode ?? "network"}) — using ${label}`);
+  return wrapLanguageModel({
+    model: primary,
+    middleware: {
+      wrapGenerate: async ({ doGenerate, params }) => {
+        try {
+          return await doGenerate();
+        } catch (err) {
+          if (!shouldFallBack(err)) throw err;
+          note(err);
+          return backupCall(() => backup.doGenerate(normalizeToolCallIds(params))).catch(gaveUp(err));
+        }
+      },
+      wrapStream: async ({ doStream, params }) => {
+        try {
+          return await doStream();
+        } catch (err) {
+          if (!shouldFallBack(err)) throw err;
+          note(err);
+          return backupCall(() => backup.doStream(normalizeToolCallIds(params))).catch(gaveUp(err));
+        }
+      },
+    },
+  });
+}
+
 export function isAiConfigured(): boolean {
   return Boolean(globalForModel.__niaChatModel) || aiConfig().configured;
 }
@@ -54,9 +154,9 @@ export function setModelOverrides(models: { chat?: LanguageModel; extraction?: L
   globalForModel.__niaExtractionModel = models?.extraction ?? models?.chat;
 }
 
-export function describeModel(): { provider: string | null; model: string | null } {
+export function describeModel(): { provider: string | null; model: string | null; backup: string | null } {
   const cfg = aiConfig();
-  return { provider: cfg.provider ?? null, model: cfg.model ?? null };
+  return { provider: cfg.provider ?? null, model: cfg.model ?? null, backup: cfg.fallback ? `${cfg.fallback.provider} · ${cfg.fallback.model}` : null };
 }
 
 /**

@@ -82,6 +82,7 @@ export default async function JudgePage({ params }: { params: Promise<{ merchant
           <div>
             <p className="text-xs text-muted-foreground">LLM</p>
             <p className="font-semibold">{model.provider ? `${model.provider} · ${model.model}` : "not configured"}</p>
+            {model.backup ? <p className="text-xs text-muted-foreground">Backup when it is busy: {model.backup}</p> : null}
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Telegram</p>
