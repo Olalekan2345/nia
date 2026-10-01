@@ -84,6 +84,7 @@ import {
   productCaption,
   serviceCaption,
   storefrontUrl,
+  telegramPhotoUrl,
   toTelegramHtml,
   marketUrl,
   welcomeKeyboard,
@@ -694,6 +695,19 @@ function collectOutputs(steps: { toolResults: { toolName: string; input: unknown
   return out;
 }
 
+/** A product card: its photo when Telegram can fetch one, otherwise (or if the fetch fails) the same text. */
+async function sendPhotoCard(c: ChatContext, photo: string | null, caption: string, keyboard: InlineKeyboardMarkup): Promise<void> {
+  if (photo) {
+    try {
+      await c.deps.bot.sendPhoto(c.chatId, photo, caption, keyboard);
+      return;
+    } catch (err) {
+      console.warn("[telegram] photo not sent, using text:", (err as Error).message.slice(0, 120));
+    }
+  }
+  await c.deps.bot.sendMessage(c.chatId, caption, { html: true, keyboard });
+}
+
 /** Other finds, under the product the customer asked about: one tap asks Nia about each. */
 async function sendSimilar(c: ChatContext, items: { id: string; name: string }[]): Promise<void> {
   if (!items.length) return;
@@ -709,9 +723,7 @@ async function sendCards(c: ChatContext, merchant: Merchant, outputs: ToolOutput
   const marketFocus = namedProduct(outputs.market ?? [], texts);
   for (const p of focus ? [focus] : hits.slice(0, 3)) {
     const keyboard: InlineKeyboardMarkup = { inline_keyboard: [[{ text: "View in shop", url: storefrontUrl(appUrl, merchant, `/shop/${p.slug}`) }]] };
-    const caption = productCaption(p, merchant.locale);
-    if (p.image && /^https:\/\//.test(p.image)) await bot.sendPhoto(c.chatId, p.image, caption, keyboard);
-    else await bot.sendMessage(c.chatId, caption, { html: true, keyboard });
+    await sendPhotoCard(c, telegramPhotoUrl(appUrl, p.image), productCaption(p, merchant.locale), keyboard);
   }
   if (focus) await sendSimilar(c, hits.filter((p) => p.id !== focus.id));
   for (const s of (outputs.services ?? []).slice(0, 3)) {
@@ -750,8 +762,7 @@ async function sendCards(c: ChatContext, merchant: Merchant, outputs: ToolOutput
       const keyboard: InlineKeyboardMarkup = {
         inline_keyboard: [[{ text: `View at ${p.shop.name}`.slice(0, 60), url: `${appUrl}${p.url}` }, ...(p.shop.slug ? [{ text: "💬 Chat with shop", callback_data: CB.shop(p.shop.slug) }] : [])]],
       };
-      if (p.image && /^https:\/\//.test(p.image)) await bot.sendPhoto(c.chatId, p.image, marketCaption(p), keyboard);
-      else await bot.sendMessage(c.chatId, marketCaption(p), { html: true, keyboard });
+      await sendPhotoCard(c, telegramPhotoUrl(appUrl, p.image), marketCaption(p), keyboard);
     }
     if (marketFocus) await sendSimilar(c, (outputs.market ?? []).filter((p) => p.id !== marketFocus.id));
   }

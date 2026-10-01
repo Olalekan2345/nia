@@ -31,6 +31,7 @@
     "brand:icons": "tsx scripts/brand-assets.ts",
     "brand:landing": "tsx scripts/landing-assets.ts",
     "market:images": "tsx scripts/populate-market-images.ts",
+    "market:tg-photos": "tsx scripts/telegram-photos.ts",
     "db:reset": "tsx packages/database/scripts/reset.ts",
     "orders:settle-demo": "tsx packages/ai/scripts/settle-demo-orders.ts",
     "orders:settle-demo:prod": "tsx packages/ai/scripts/settle-demo-orders.ts --production",

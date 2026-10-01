@@ -1,4 +1,6 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { existsSync, readdirSync } from "node:fs";
+import path from "node:path";
 import { and, eq } from "drizzle-orm";
 import { applyDemoTemplate, merchants, messages, orders, productVariants, products, sessions, telegramIdentities, type Database, type Merchant } from "@nia/database";
 import { setupTestDb, createMerchant, createUser } from "@nia/database/testing";
@@ -17,7 +19,7 @@ import {
 } from "@nia/commerce";
 import { createConversation, saveAssistantMessage, saveUserMessage, setModelOverrides } from "@nia/ai";
 import { sha256Hex } from "@nia/shared/server";
-import { claimUpdate, processUpdate, toTelegramHtml, verifyWebhookSecret, type Bot, type TelegramDeps, type TgUpdate } from "../src";
+import { claimUpdate, processUpdate, telegramPhotoUrl, toTelegramHtml, verifyWebhookSecret, type Bot, type TelegramDeps, type TgUpdate } from "../src";
 import { jsonModel, scriptedModel } from "../../ai/test/mock-model";
 
 let db: Database;
@@ -50,6 +52,9 @@ function textUpdate(userId: number, text: string): TgUpdate {
 function callbackUpdate(userId: number, data: string): TgUpdate {
   return { update_id: updateId++, callback_query: { id: `cb${updateId}`, from: tgUser(userId), data, message: { message_id: 5, chat: { id: userId, type: "private" }, date: 0 } } };
 }
+
+/** Product photos sent, with their captions. */
+const photos = () => sent.filter((s) => s.method === "sendPhoto").map((s) => ({ url: String(s.args[1]), caption: String(s.args[2]) }));
 
 /** Messages the user sees, including later edits (memory receipts are edited in place). */
 const texts = () => sent.filter((s) => s.method === "sendMessage" || s.method === "editMessageText").map((s) => String(s.method === "sendMessage" ? s.args[1] : s.args[2]));
@@ -130,7 +135,9 @@ describe("conversation flow", () => {
     await processUpdate(deps(), textUpdate(5002, "Show me ankara — I normally buy Medium"));
     const all = texts();
     expect(all[0]).toContain("<b>Ankara</b>");
-    expect(all.some((t) => t.includes("Classic Ankara Wax Print"))).toBe(true);
+    // Product cards arrive as photos Telegram can fetch: a public link, JPEG copies of the WebP catalog photos.
+    const card = photos().find((p) => p.caption.includes("Classic Ankara Wax Print"));
+    expect(card?.url).toMatch(/^https:\/\/nia\.example\/stock\/.+\.jpg$/);
     // Honest receipt: "saving" is sent first, then that same message is edited once storage confirms.
     const savingAt = sent.findIndex((x) => x.method === "sendMessage" && String(x.args[1]).includes("Saving to memory"));
     const editAt = sent.findIndex((x) => x.method === "editMessageText" && String(x.args[2]).includes("I'll remember that"));
@@ -430,10 +437,10 @@ describe("asking about one product", () => {
     await processUpdate(deps(), textUpdate(7401, `/start s_${shop.slug}`));
     sent = [];
     await processUpdate(deps(), textUpdate(7401, "Tell me more about the Midnight Linen Kaftan"));
-    const all = texts().join("\n");
-    expect(all).toContain("Midnight Linen Kaftan");
+    const cards = [...photos().map((p) => p.caption), ...texts()].join("\n");
+    expect(cards).toContain("Midnight Linen Kaftan");
     // The shirt the search also found is a suggestion button, not a card of its own.
-    expect(all).not.toMatch(/<b>Everyday Linen Shirt<\/b>/);
+    expect(cards).not.toMatch(/<b>Everyday Linen Shirt<\/b>/);
     const similar = sent.find((s) => String(s.args[1]).startsWith("Not quite right? Similar items"));
     const buttons = JSON.stringify(similar?.args[2]);
     expect(buttons).toContain("Everyday Linen Shirt");
@@ -448,5 +455,41 @@ describe("asking about one product", () => {
     const said = await db.select().from(messages).where(and(eq(messages.conversationId, identity!.activeConversationId!), eq(messages.role, "user")));
     expect(said.map((m) => m.content)).toContain("Tell me more about the Everyday Linen Shirt");
     expect(texts().join("\n")).toContain("breathable");
+  });
+});
+
+describe("product photos on Telegram", () => {
+  it("links each catalog photo publicly, as JPEG, and sends text when the app has no public URL", () => {
+    expect(telegramPhotoUrl("https://nia-pearl.vercel.app", "/stock/arc-a15-smartphone.webp")).toBe("https://nia-pearl.vercel.app/stock/tg/arc-a15-smartphone.jpg");
+    expect(telegramPhotoUrl("https://nia-pearl.vercel.app/", "/stock/classic-ankara-wax-print.jpg")).toBe("https://nia-pearl.vercel.app/stock/classic-ankara-wax-print.jpg");
+    expect(telegramPhotoUrl("https://nia-pearl.vercel.app", "/api/media/3f0c")).toBe("https://nia-pearl.vercel.app/api/media/3f0c");
+    expect(telegramPhotoUrl("https://nia-pearl.vercel.app", "https://cdn.example/p.png")).toBe("https://cdn.example/p.png");
+    expect(telegramPhotoUrl("http://localhost:3210", "/stock/arc-a15-smartphone.webp")).toBeNull();
+    expect(telegramPhotoUrl("https://nia-pearl.vercel.app", null)).toBeNull();
+  });
+
+  it("every WebP catalog photo has its JPEG copy for Telegram", () => {
+    const dir = path.resolve(__dirname, "../../../apps/web/public/stock");
+    const webp = readdirSync(dir).filter((f) => f.endsWith(".webp"));
+    const missing = webp.filter((f) => !existsSync(path.join(dir, "tg", f.replace(/\.webp$/, ".jpg"))));
+    expect(webp.length).toBeGreaterThan(100);
+    expect(missing, "run pnpm market:tg-photos").toEqual([]);
+  });
+
+  it("still sends the product as text if Telegram can't fetch its photo", async () => {
+    setModelOverrides({ chat: scriptedModel([{ toolCalls: [{ name: "searchProducts", input: { query: "ankara" } }] }, { text: "Here you go." }]) });
+    const failingPhotos = new Proxy({} as Bot, {
+      get: (_t, prop: string) => async (...args: unknown[]) => {
+        if (prop === "sendPhoto") throw new Error("Bad Request: wrong file identifier/HTTP URL specified");
+        sent.push({ method: prop, args });
+        return { message_id: sent.length, chat: { id: 1, type: "private" }, date: 0 } as never;
+      },
+    });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    await processUpdate({ ...deps(), bot: failingPhotos }, textUpdate(7501, `/start s_${shop.slug}`));
+    sent = [];
+    await processUpdate({ ...deps(), bot: failingPhotos }, textUpdate(7501, "Show me ankara"));
+    expect(texts().some((t) => t.includes("Classic Ankara Wax Print"))).toBe(true);
+    vi.restoreAllMocks();
   });
 });

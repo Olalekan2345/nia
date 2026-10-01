@@ -291,3 +291,15 @@ export function celebrationText(o: OrderSummaryData): string {
 export function paidOrderText(o: OrderSummaryData, locale: string): string {
   return `✅ ${orderSummaryText(o, locale, "Payment confirmed")}\n\n<i>${escapeHtml(DEMO_PAYMENT_NOTE)}</i>`;
 }
+
+/**
+ * A product photo Telegram can fetch: a public https link, and the JPEG copy for
+ * the WebP catalog photos (`pnpm market:tg-photos`). Null when the app has no
+ * public URL (localhost) — Telegram can't reach it, so the text card is sent.
+ */
+export function telegramPhotoUrl(appUrl: string, image: string | null | undefined): string | null {
+  if (!image) return null;
+  if (/^https:\/\//.test(image)) return image;
+  if (!/^https:\/\//.test(appUrl) || !image.startsWith("/")) return null;
+  return `${appUrl.replace(/\/+$/, "")}${image.replace(/^\/stock\/([^/]+)\.webp$/, "/stock/tg/$1.jpg")}`;
+}
