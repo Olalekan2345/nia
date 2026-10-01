@@ -104,7 +104,7 @@ describe("baskets", () => {
       { label: "Snacks", query: "puff puff", quantity: 2 },
       { label: "Cake", query: "cake", quantity: 1 },
     ];
-    const first = (await t1.market.planBasket.execute!({ goal: "Eight friends tonight", budget: 50_000, people: 8, slots }, opts)) as { ok: boolean; lines: { slot: string; productId: string; unitPrice: number }[]; total: number; totalLabel: string; remainingLabel: string };
+    const first = (await t1.market.planBasket.execute!({ goal: "Eight friends tonight", budget: 50_000, people: 8, slots }, opts)) as unknown as { ok: boolean; lines: { slot: string; productId: string; unitPrice: number }[]; total: number; totalLabel: string; remainingLabel: string };
     expect(first.ok).toBe(true);
     expect(first.total).toBeLessThanOrEqual(50_000 * 100);
     expect(first.totalLabel).toMatch(/^₦/);
@@ -113,7 +113,7 @@ describe("baskets", () => {
     const t2 = await turn(market, c, "Make the cake cheaper", t1.conversation.id);
     expect(t2.prepared.activeTools).toContain("planBasket");
     expect(t2.prepared.system).toContain('Proposed basket "Eight friends tonight"');
-    const second = (await t2.market.planBasket.execute!({ goal: "Eight friends tonight", budget: 50_000, slots, cheaper: ["Cake"] }, opts)) as typeof first;
+    const second = (await t2.market.planBasket.execute!({ goal: "Eight friends tonight", budget: 50_000, slots, cheaper: ["Cake"] }, opts)) as unknown as typeof first;
     const line = (p: typeof first, s: string) => p.lines.find((l) => l.slot === s)!;
     expect(line(second, "Drinks").productId).toBe(line(first, "Drinks").productId);
     expect(line(second, "Snacks").productId).toBe(line(first, "Snacks").productId);

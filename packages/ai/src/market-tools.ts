@@ -11,7 +11,7 @@ import { toMinorUnits } from "@nia/shared";
 import { createAgentTools, rememberShown, sessionItem, specsText, whyReasons, type SearchConstraints } from "./agent-tools";
 import { createNiaTools, fail, searchExtras, toolGuard, type NiaToolScope } from "./tools";
 
-const productId = z.string().min(8).max(64).describe("Exact product id from a previous search result");
+const productId = z.string().min(8).max(64).describe("exact product id");
 
 /**
  * What the model (and the market card UI) needs. Kept deliberately small: every
@@ -88,16 +88,15 @@ export function createMarketTools(scope: NiaToolScope) {
 
   return {
     searchMarket: tool({
-      description:
-        "Search products across every shop in Walrus Market. Use for any product request or recommendation. Budget is in major units of the currency (e.g. naira). Results include real specs and short 'why' reasons.",
+      description: "Search products across all shops. Budgets in major currency units.",
       inputSchema: z.object({
-        query: z.string().max(200).optional().describe("Keywords, e.g. 'ankara', 'birthday cake', 'hair serum'"),
+        query: z.string().max(200).optional().describe("keywords"),
         category: z.string().max(80).optional(),
-        maxBudget: z.number().positive().optional().describe("Maximum price per unit in major currency units"),
+        maxBudget: z.number().positive().optional().describe("per unit"),
         colour: z.string().max(40).optional(),
-        size: z.string().max(20).optional(),
+        size: z.string().max(20).optional().describe("option size, e.g. M, XL, 500 ml"),
         inStockOnly: z.boolean().optional(),
-        shop: z.string().max(64).optional().describe("Limit to one shop (its slug)"),
+        shop: z.string().max(64).optional().describe("shop slug"),
         limit: z.number().int().min(1).max(6).optional(),
         ...searchExtras,
       }),
@@ -135,7 +134,7 @@ export function createMarketTools(scope: NiaToolScope) {
     }),
 
     searchMarketServices: tool({
-      description: "Search bookable services across shops (hair, nails, brows, tailoring, alterations…). Budget in major currency units.",
+      description: "Search bookable services across shops.",
       inputSchema: z.object({
         query: z.string().max(200).optional(),
         maxBudget: z.number().positive().optional(),
@@ -155,8 +154,7 @@ export function createMarketTools(scope: NiaToolScope) {
     }),
 
     compareProducts: tool({
-      description:
-        "Compare 2–4 products side by side from their real specs, options, price, stock, shop and delivery when the shopper is deciding. Use exact product ids (from results or <nia_session>). Optional focus limits to specs they care about ('battery', 'weight'). Specs not listed are not listed — never guess them.",
+      description: "Compare 2–4 products (ids from results or <nia_session>) from real specs; never guess unlisted specs. focus = specs to compare.",
       inputSchema: z.object({ productIds: z.array(productId).min(2).max(4), focus: z.array(z.string().max(30)).max(6).optional() }),
       execute: ({ productIds, focus }) =>
         guard(async () => {
@@ -168,12 +166,11 @@ export function createMarketTools(scope: NiaToolScope) {
     }),
 
     askDecision: tool({
-      description:
-        "Ask the shopper ONE short multiple-choice question that changes what you'd recommend (who it's for, occasion, budget, size, colour, timing, style). The app shows the options as buttons; the shopper can also type their own answer. At most one per reply; never ask what their memory already tells you.",
+      description: "Ask ONE multiple-choice question that changes the recommendation; options show as buttons. Max one per reply; never ask what memory already says.",
       inputSchema: z.object({
         question: z.string().min(5).max(140),
         options: z.array(z.string().min(1).max(40)).min(2).max(5),
-        topic: z.string().min(2).max(30).optional().describe("2–3 word label for what the answer tells you, e.g. 'Gift type', 'Budget', 'Favourite colour'"),
+        topic: z.string().min(2).max(30).optional().describe("2–3 word label, e.g. 'Budget'"),
       }),
       execute: async ({ question, options, topic }) => ({ ok: true as const, question, options, ...(topic ? { topic } : {}) }),
     }),

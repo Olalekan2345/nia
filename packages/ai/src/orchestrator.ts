@@ -29,7 +29,8 @@ import { redactSensitive, type Channel, type MemoryScope } from "@nia/shared";
 import { buildMarketSystemPrompt, buildSystemPrompt, formatCart, formatKnowledge, formatRecalledMemories } from "./prompts";
 import { createNiaTools, type NiaToolScope, type NiaTools } from "./tools";
 import { createMarketTools, type MarketTools } from "./market-tools";
-import { COMPARE_TALK, LIST_TALK, PLAN_TALK, SAVE_TALK } from "./agent-tools";
+import { BASKET_EDIT_TALK, COMPARE_TALK, LIST_TALK, PLAN_TALK, SAVE_TALK } from "./agent-tools";
+import { withCompactOutputs } from "./model-output";
 import { CONTINUE_TALK, formatSession, previousSession, sessionHandle } from "./session";
 import { extractMemories } from "./extraction";
 import { decisionAnswer, splitAskedQuestion, type AskedDecision } from "./decisions";
@@ -281,7 +282,10 @@ export async function prepareTurn(ctx: TurnContext, rawUserText: string, opts: {
   };
   const gates = {
     memoryQuestion: isMemoryQuestion(userText),
-    planContext: PLAN_TALK.test(userText) || Boolean(s.basket && PLAN_TALK.test(recentTalk)) || Boolean(s.list?.length && /\b(?:get|buy|order) (?:everything|it all|them)\b/i.test(userText)),
+    planContext:
+      PLAN_TALK.test(userText) ||
+      Boolean(s.basket && (BASKET_EDIT_TALK.test(userText) || PLAN_TALK.test(recentTalk))) ||
+      Boolean(s.list?.length && /\b(?:get|buy|order) (?:everything|it all|them)\b/i.test(userText)),
     compareContext: COMPARE_TALK.test(userText),
     saveContext: SAVE_TALK.test(userText),
     listContext: LIST_TALK.test(userText),
@@ -329,7 +333,8 @@ export async function prepareTurn(ctx: TurnContext, rawUserText: string, opts: {
   return {
     system,
     messages,
-    tools: isMarket ? createMarketTools(scope) : createNiaTools(scope),
+    // The model gets compact tool results; cards and Telegram get the full ones.
+    tools: isMarket ? withCompactOutputs(createMarketTools(scope)) : withCompactOutputs(createNiaTools(scope)),
     activeTools: isMarket
       ? selectMarketTools({
           memoryOn: mode === "on",

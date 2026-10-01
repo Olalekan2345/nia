@@ -271,6 +271,15 @@ describe("provider rate limits", () => {
     expect(aiBusyMessage(retryError)).toBe("Nia is getting a lot of messages right now. Please try again in about 14 seconds.");
     expect(aiBusyMessage(new Error("Something else broke"))).toBeNull();
   });
+
+  it("says when the daily budget is used up, with the real wait (minutes and hours)", () => {
+    const daily = Object.assign(new Error("Rate limit reached for project on tokens per day (TPD): Limit 170000, Used 169325, Requested 4255. Please try again in 30m19.48s."), { statusCode: 429 });
+    expect(aiBusyMessage(daily)).toBe("Nia has reached today's usage limit for this demo. Please try again in about 31 minutes.");
+    const long = Object.assign(new Error("Rate limit reached on tokens per day (TPD). Please try again in 2h4m10s."), { statusCode: 429 });
+    expect(aiBusyMessage(long)).toBe("Nia has reached today's usage limit for this demo. Please try again in about 2 hours.");
+    const minute = Object.assign(new Error("Rate limit reached on tokens per minute (TPM). Please try again in 1m5s."), { statusCode: 429 });
+    expect(aiBusyMessage(minute)).toBe("Nia is getting a lot of messages right now. Please try again in about 2 minutes.");
+  });
 });
 
 describe("money in tool results", () => {

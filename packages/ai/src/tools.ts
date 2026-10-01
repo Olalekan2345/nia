@@ -41,17 +41,17 @@ export { fail, toolGuard, withMoneyLabels, type NiaToolScope } from "./tool-kit"
 
 /** Optional search constraints shared by the shop and market search tools. */
 export const searchExtras = {
-  minBudget: z.number().positive().optional().describe("Minimum price per unit, major units"),
-  exclude: z.array(z.string().min(2).max(30)).max(6).optional().describe("Hard: never show items described by these words ('red', 'dairy')"),
-  prefer: z.array(z.string().min(2).max(30)).max(6).optional().describe("Soft: rank these higher ('lightweight', 'darker')"),
-  forWhom: z.string().max(40).optional().describe("Who it's for, this purchase only ('my brother')"),
+  minBudget: z.number().positive().optional(),
+  exclude: z.array(z.string().min(2).max(30)).max(6).optional().describe("never show"),
+  prefer: z.array(z.string().min(2).max(30)).max(6).optional().describe("rank higher"),
+  forWhom: z.string().max(40).optional(),
   occasion: z.string().max(40).optional(),
 };
 
 const SIGN_IN = fail("The customer needs to sign in to use their cart, orders or bookings.", "SIGN_IN_REQUIRED");
 
 /** Plain string ids (no JSON-Schema "format") for maximum provider compatibility; validated in each tool. */
-const id = z.string().min(8).max(64).describe("Exact id from a previous tool result");
+const id = z.string().min(8).max(64).describe("exact id from a tool result");
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const badId = (...ids: (string | undefined | null)[]) => ids.some((v) => v != null && !UUID_RE.test(v));
 
@@ -66,14 +66,13 @@ export function createNiaTools(scope: NiaToolScope) {
     ...createAgentTools(scope, { shops: [merchant.slug] }),
 
     searchProducts: tool({
-      description:
-        "Search this shop's product catalog (products, custom orders, packages). Use for any product question or recommendation. Budget is in major units of the shop currency.",
+      description: "Search this shop's products. Budgets in major currency units.",
       inputSchema: z.object({
-        query: z.string().max(200).optional().describe("Keywords, e.g. 'ankara', 'linen kaftan', 'body butter'"),
+        query: z.string().max(200).optional().describe("keywords"),
         category: z.string().max(80).optional(),
-        maxBudget: z.number().positive().optional().describe("Maximum price per unit in major currency units"),
-        colour: z.string().max(40).optional().describe("Colour or colour family, e.g. 'blue', 'darker', 'emerald'"),
-        size: z.string().max(20).optional().describe("Size option, e.g. 'M', 'XL', '500 ml'"),
+        maxBudget: z.number().positive().optional().describe("per unit"),
+        colour: z.string().max(40).optional(),
+        size: z.string().max(20).optional().describe("option size, e.g. M, XL, 500 ml"),
         inStockOnly: z.boolean().optional(),
         limit: z.number().int().min(1).max(8).optional(),
         ...searchExtras,
@@ -110,7 +109,7 @@ export function createNiaTools(scope: NiaToolScope) {
     }),
 
     getProduct: tool({
-      description: "Get one product with all its variants, prices, availability, recorded price changes, and alternatives when it's unavailable.",
+      description: "One product: variants, prices, stock, recorded price changes, alternatives.",
       inputSchema: z.object({ productId: id }),
       execute: async ({ productId }) =>
         guard(async () => {
@@ -132,7 +131,7 @@ export function createNiaTools(scope: NiaToolScope) {
     }),
 
     compareProducts: tool({
-      description: "Compare 2–4 of this shop's products side by side from their real specs, options, prices and stock. Optional focus limits to specs the customer cares about ('battery', 'weight').",
+      description: "Compare 2–4 products from real specs. focus = specs to compare.",
       inputSchema: z.object({ productIds: z.array(id).min(2).max(4), focus: z.array(z.string().max(30)).max(6).optional() }),
       execute: async ({ productIds, focus }) =>
         guard(async () => {
@@ -144,10 +143,10 @@ export function createNiaTools(scope: NiaToolScope) {
     }),
 
     searchServices: tool({
-      description: "Search this shop's services and appointments (with next available time when known).",
+      description: "Search this shop's services.",
       inputSchema: z.object({
         query: z.string().max(200).optional(),
-        maxBudget: z.number().positive().optional().describe("Major currency units"),
+        maxBudget: z.number().positive().optional(),
       }),
       execute: async (input) =>
         guard(async () => {
@@ -160,7 +159,7 @@ export function createNiaTools(scope: NiaToolScope) {
     }),
 
     getService: tool({
-      description: "Get one service's details, options, price and next availability.",
+      description: "One service: options, price, next availability.",
       inputSchema: z.object({ serviceId: id }),
       execute: async ({ serviceId }) =>
         guard(async () => {
@@ -171,8 +170,7 @@ export function createNiaTools(scope: NiaToolScope) {
     }),
 
     getCustomerRecentOrders: tool({
-      description:
-        "The signed-in customer's recent orders AND bookings at this shop (operational truth). Use for 'same as last time', 'my usual', 'book the same haircut', order status. 'repeat' / 'repeatBooking' say whether history is clear or ambiguous.",
+      description: "Customer's recent orders and bookings here, for 'same as last time', 'my usual' or status. repeat/repeatBooking say if history is clear.",
       inputSchema: z.object({ limit: z.number().int().min(1).max(10).optional() }),
       execute: async ({ limit }) =>
         guard(async () => {
@@ -197,7 +195,7 @@ export function createNiaTools(scope: NiaToolScope) {
     }),
 
     getOrder: tool({
-      description: "Look up one of the customer's orders by its number (e.g. 1042).",
+      description: "One of the customer's orders by number.",
       inputSchema: z.object({ orderNumber: z.number().int().positive() }),
       execute: async ({ orderNumber }) =>
         guard(async () => {
@@ -209,8 +207,7 @@ export function createNiaTools(scope: NiaToolScope) {
     }),
 
     createDraftOrder: tool({
-      description:
-        "Start the customer's cart. Pass fromOrderId to repeat a previous order ('same as last time') — items are re-added at today's prices and stock.",
+      description: "Start the cart. fromOrderId repeats that order at today's prices and stock.",
       inputSchema: z.object({ fromOrderId: id.optional() }),
       execute: async ({ fromOrderId }) =>
         guard(async () => {
@@ -235,13 +232,13 @@ export function createNiaTools(scope: NiaToolScope) {
     }),
 
     addItemToDraft: tool({
-      description: "Add a product (with its variant when it has options) to the cart. Quantity is in the product's unit (e.g. yards).",
+      description: "Add a product (and variant if it has options) to the cart. Quantity in the product's unit.",
       inputSchema: z.object({
         productId: id,
         variantId: id.optional(),
         quantity: z.number().int().min(1).max(999),
         notes: z.string().max(300).optional(),
-        basedOnMemory: z.boolean().optional().describe("true when the choice came from the customer's remembered preferences or history"),
+        basedOnMemory: z.boolean().optional().describe("choice came from memory"),
       }),
       execute: async (input) =>
         guard(async () => {
@@ -272,7 +269,7 @@ export function createNiaTools(scope: NiaToolScope) {
     }),
 
     updateDraftItem: tool({
-      description: "Change quantity, variant or note of a cart line (item id from the cart).",
+      description: "Change a cart line.",
       inputSchema: z.object({
         itemId: id,
         quantity: z.number().int().min(1).max(999).optional(),
@@ -301,7 +298,7 @@ export function createNiaTools(scope: NiaToolScope) {
     }),
 
     setFulfillment: tool({
-      description: "Choose delivery (with one of the shop's listed areas) or pickup for the cart. For a one-off destination, this does NOT change the customer's usual delivery area.",
+      description: "Delivery (a listed area) or pickup. A one-off destination doesn't change the usual area.",
       inputSchema: z.object({
         method: z.enum(["delivery", "pickup"]),
         deliveryArea: z.string().max(80).optional(),
@@ -317,7 +314,7 @@ export function createNiaTools(scope: NiaToolScope) {
     }),
 
     showOrderSummary: tool({
-      description: "Show the cart as a structured order summary with Confirm / Edit buttons. The customer must press Confirm themselves.",
+      description: "Show the order summary with Confirm/Edit buttons (the customer confirms).",
       inputSchema: z.object({}),
       execute: async () =>
         guard(async () => {
@@ -331,12 +328,12 @@ export function createNiaTools(scope: NiaToolScope) {
     }),
 
     getAvailableBookingSlots: tool({
-      description: "Open booking slots for a service. Optional date (YYYY-MM-DD, shop local) and a time window (HH:MM).",
+      description: "Open slots for a service.",
       inputSchema: z.object({
         serviceId: id,
-        date: z.string().max(10).optional().describe("YYYY-MM-DD in the shop's time zone"),
-        after: z.string().max(5).optional().describe("Earliest start time, HH:MM"),
-        before: z.string().max(5).optional().describe("Latest end time, HH:MM"),
+        date: z.string().max(10).optional().describe("YYYY-MM-DD"),
+        after: z.string().max(5).optional().describe("HH:MM"),
+        before: z.string().max(5).optional().describe("HH:MM"),
       }),
       execute: async (input) =>
         guard(async () => {
@@ -349,10 +346,10 @@ export function createNiaTools(scope: NiaToolScope) {
     }),
 
     createBookingDraft: tool({
-      description: "Propose a booking for an open slot (startAt must be one of the returned slot ISO times). The customer confirms it on the card.",
+      description: "Propose a booking for an open slot; the customer confirms on the card.",
       inputSchema: z.object({
         serviceId: id,
-        startAt: z.string().max(40).describe("Exact startAt ISO time from getAvailableBookingSlots"),
+        startAt: z.string().max(40).describe("a returned slot startAt"),
         options: z.array(z.string().max(80)).max(5).optional(),
         notes: z.string().max(500).optional(),
         basedOnMemory: z.boolean().optional(),
@@ -378,8 +375,8 @@ export function createNiaTools(scope: NiaToolScope) {
     }),
 
     getMerchantPolicy: tool({
-      description: "Shop policies and FAQs: shipping, returns, hours, service policies, product guidance.",
-      inputSchema: z.object({ topic: z.string().max(80).optional().describe("e.g. 'returns', 'same-day delivery', 'deposit'") }),
+      description: "Shop policies and FAQs.",
+      inputSchema: z.object({ topic: z.string().max(80).optional() }),
       execute: async ({ topic }) =>
         guard(async () => {
           const rows = await db.select().from(merchantKnowledge).where(and(eq(merchantKnowledge.merchantId, m), eq(merchantKnowledge.active, true)));
@@ -393,7 +390,7 @@ export function createNiaTools(scope: NiaToolScope) {
     }),
 
     recallCustomerMemory: tool({
-      description: "Search this customer's long-term memory (Walrus) for something specific not already in <nia_customer_memory>.",
+      description: "Search the customer's Walrus memory for something not in <nia_customer_memory>.",
       inputSchema: z.object({ query: z.string().min(3).max(300) }),
       execute: async ({ query }) =>
         guard(async () => {
@@ -414,7 +411,7 @@ export function createNiaTools(scope: NiaToolScope) {
     }),
 
     recallMerchantMemory: tool({
-      description: "Search the shop's own operational notes and knowledge memory (e.g. restock dates, temporary rules).",
+      description: "Search the shop's own notes memory.",
       inputSchema: z.object({ query: z.string().min(3).max(300) }),
       execute: async ({ query }) =>
         guard(async () => {
@@ -429,8 +426,7 @@ export function createNiaTools(scope: NiaToolScope) {
     }),
 
     forgetCustomerMemory: tool({
-      description:
-        "Forget one of the customer's memories (reference like 'M2') — only when they ask you to forget/delete it or say it is wrong. Never for updates like 'I've moved' or 'my size is XL now': those are stored automatically and keep history.",
+      description: "Forget a memory (ref like M2) only when asked to forget it or it is wrong — never for updates like 'I moved' (kept automatically).",
       inputSchema: z.object({ ref: z.string().max(4).describe("Memory reference like M2") }),
       execute: async ({ ref }) =>
         guard(async () => {

@@ -80,9 +80,8 @@ export function createAgentTools(scope: NiaToolScope, { shops }: { shops?: strin
 
   return {
     showMyMemory: tool({
-      description:
-        "Show what Nia remembers about the customer (sizes, colours, delivery, people, budget…) as a card with how sure Nia is. Use for 'what do you remember about me', 'what size do I normally buy', 'where do I usually deliver'. Optional topic narrows it.",
-      inputSchema: z.object({ topic: z.string().max(40).optional().describe("e.g. 'size', 'delivery', 'brands'") }),
+      description: "Show what Nia remembers about the customer as a card (for 'what do you remember about me', 'what size do I buy').",
+      inputSchema: z.object({ topic: z.string().max(40).optional() }),
       execute: ({ topic }) =>
         guard(async () => {
           if (!scope.customerId) return fail("The customer needs to sign in so Nia can remember them.", "SIGN_IN_REQUIRED");
@@ -114,26 +113,26 @@ export function createAgentTools(scope: NiaToolScope, { shops }: { shops?: strin
 
     planBasket: tool({
       description:
-        "Build a proposed basket from real products for a goal with several parts (party, event, outfit, home office, dinner plan, gift set, shopping list). You give the slots, quantities and people; the server finds real items, keeps it within the budget and totals it exactly. Set quantity for the headcount (8 friends → drinks quantity 8); if you leave it out and give people, single servings default to one each. Call it ONCE per reply; re-call only in a later reply with changes ('make it cheaper', 'remove the monitor', 'shoes cheaper', 'everything in black'). Nothing is bought — the customer reviews and adds it.",
+        "Propose a basket of real items for a multi-part goal (party, outfit, home office, shopping list); the server picks items, keeps the budget and totals it. Quantity follows headcount (8 friends → 8 drinks). Once per reply; later replies may re-call with changes. Nothing is bought.",
       inputSchema: z.object({
         goal: z.string().min(3).max(80),
-        budget: z.number().positive().optional().describe("Whole-basket budget, major currency units"),
+        budget: z.number().positive().optional().describe("whole basket"),
         people: z.number().int().min(1).max(200).optional(),
         slots: z
           .array(
             z.object({
-              label: z.string().min(2).max(30).describe("e.g. 'Drinks', 'Cake', 'Laptop'"),
-              query: z.string().min(2).max(60).describe("1–3 simple search words"),
+              label: z.string().min(2).max(30),
+              query: z.string().min(2).max(60).describe("1–3 words"),
               quantity: z.number().int().min(1).max(50).optional(),
-              maxPrice: z.number().positive().optional().describe("Per unit, major units"),
+              maxPrice: z.number().positive().optional().describe("per unit"),
             }),
           )
           .min(1)
           .max(8),
-        prefer: words.optional().describe("Soft preferences, e.g. ['black']"),
-        exclude: words.optional().describe("Never include, e.g. ['alcohol','red']"),
-        colour: z.string().max(30).optional().describe("Apply to every item that comes in it"),
-        cheaper: z.array(z.string().max(30)).max(8).optional().describe("Slot labels to make cheaper than last time"),
+        prefer: words.optional().describe("rank higher"),
+        exclude: words.optional().describe("never include"),
+        colour: z.string().max(30).optional().describe("for every item"),
+        cheaper: z.array(z.string().max(30)).max(8).optional().describe("slot labels to make cheaper"),
       }),
       execute: (input) =>
         guard(async () => {
@@ -170,7 +169,7 @@ export function createAgentTools(scope: NiaToolScope, { shops }: { shops?: strin
     }),
 
     saveForLater: tool({
-      description: "Save products the customer wants to keep ('save these two', 'keep that one') so they can come back to them later, on the web or Telegram. Use exact product ids.",
+      description: "Save products the customer wants to keep for later.",
       inputSchema: z.object({ productIds: z.array(productId).min(1).max(4) }),
       execute: ({ productIds }) =>
         guard(async () => {
@@ -183,7 +182,7 @@ export function createAgentTools(scope: NiaToolScope, { shops }: { shops?: strin
     }),
 
     updateShoppingList: tool({
-      description: "Keep the customer's shopping list for this conversation: add, remove or clear items ('add milk', 'remove juice'). To buy the list, use planBasket with one slot per item.",
+      description: "Edit the shopping list. To buy it, planBasket with one slot per item.",
       inputSchema: z.object({
         add: z.array(z.string().min(2).max(40)).max(12).optional(),
         remove: z.array(z.string().min(2).max(40)).max(12).optional(),
@@ -206,9 +205,15 @@ export type AgentTools = ReturnType<typeof createAgentTools>;
 
 /* ─────────────────────────────── Turn gating ─────────────────────────────── */
 
-/** Multi-part goals worth a basket: events, headcounts, budgets for several things, kits, plans, lists. */
+/**
+ * Multi-part goals worth a basket: events, headcounts, kits, plans, lists. Not a
+ * single item with a budget ("a laptop under 800k") — planBasket's schema is the
+ * largest tool, so it is only offered when a basket is likely.
+ */
 export const PLAN_TALK =
-  /\b(?:party|parties|event|guests?|friends over|people|birthday|wedding|dinner|lunch|meal plan|plan|outfit|set ?up|setting up|kit|bundle|everything|shopping list|my list|the list|cart for|basket|home office|decorate|for \d+|\d+ (?:people|friends|guests|kids))\b|\b(?:make|keep) (?:it|everything|them) (?:cheaper|under|below)\b|\bcheaper\b|\bremove the\b|\bupgrade the\b|\bunder ₦?\d/i;
+  /\b(?:party|parties|event|guests|friends over|get-?together|gathering|picnic|hangout|housewarming|baby shower|celebration|(?:movie|game|games|girls'?|date|quiz) night|wedding|dinner for|lunch for|meal plan|plan (?:a|my|the|dinner|lunch|meals?)|outfit|set ?up|setting up|kit|bundle|shopping list|everything on (?:my|the) list|basket|home office|decorate|(?:for )?(?:\d+|two|three|four|five|six|seven|eight|nine|ten|twelve) (?:people|friends|guests|kids))\b|\bfor (?:\d{1,2}|two|three|four|five|six|seven|eight|nine|ten|twelve)\b(?!\s*(?:k\b|years?|months?|weeks?|days?|hours?|mins?|minutes?|ml|cm|inch|inches|kg|gb|%|naira))/i;
+/** Edits to a basket that already exists ("make it cheaper", "remove the monitor"). */
+export const BASKET_EDIT_TALK = /\b(?:cheaper|remove the|drop the|upgrade the|swap|replace|instead|keep (?:it|everything) (?:under|below)|in black|in white|change (?:the|everything))\b/i;
 export const SAVE_TALK = /\b(?:save|keep|bookmark|shortlist|remember (?:these|this|that one|them))\b/i;
 export const LIST_TALK = /\b(?:list|add (?:milk|bread|eggs|juice|water|rice)|remove (?:the )?\w+ from|get everything on)\b/i;
 export const COMPARE_TALK = /\b(?:compare|comparison|versus|vs\.?|which (?:one )?is better|what'?s (?:the )?different|difference between|which (?:has|is) (?:better|lighter|cheaper|longer))\b/i;

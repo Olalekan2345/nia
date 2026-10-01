@@ -111,7 +111,27 @@ export function aiBusyMessage(err: unknown): string | null {
     return "This conversation has grown too long for Nia’s current AI plan. Start a new chat (the + button) and Nia will still remember what you told her.";
   }
   if (!/\b429\b|rate limit/i.test(text)) return null;
-  const seconds = Number(/try again in (\d+(?:\.\d+)?)s/i.exec(text)?.[1]);
-  const wait = Number.isFinite(seconds) && seconds > 0 ? `about ${Math.ceil(seconds)} seconds` : "a few seconds";
-  return `Nia is getting a lot of messages right now. Please try again in ${wait}.`;
+  const wait = retryAfterSeconds(text);
+  // A daily budget (TPD/RPD) is a different situation from a busy minute: say so, with the real wait.
+  if (/per day|\bTPD\b|\bRPD\b/i.test(text)) {
+    return `Nia has reached today's usage limit for this demo. Please try again in ${wait != null ? humanWait(wait) : "a little while"}.`;
+  }
+  return `Nia is getting a lot of messages right now. Please try again in ${wait != null ? humanWait(wait) : "a few seconds"}.`;
+}
+
+/** "try again in 30m19.48s" / "1h2m3s" / "12.5s" / "2m" → seconds, or null. */
+export function retryAfterSeconds(text: string): number | null {
+  const m = /try again in ((?:\d+(?:\.\d+)?[hms])+)/i.exec(text);
+  if (!m) return null;
+  let total = 0;
+  for (const [, n, unit] of m[1]!.matchAll(/(\d+(?:\.\d+)?)([hms])/gi)) total += Number(n) * (unit!.toLowerCase() === "h" ? 3600 : unit!.toLowerCase() === "m" ? 60 : 1);
+  return Number.isFinite(total) && total > 0 ? total : null;
+}
+
+function humanWait(seconds: number): string {
+  if (seconds < 60) return `about ${Math.ceil(seconds)} seconds`;
+  const minutes = Math.ceil(seconds / 60);
+  if (minutes < 60) return `about ${minutes} minute${minutes === 1 ? "" : "s"}`;
+  const hours = Math.round(minutes / 60);
+  return `about ${hours} hour${hours === 1 ? "" : "s"}`;
 }
