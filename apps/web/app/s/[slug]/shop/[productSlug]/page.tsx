@@ -35,9 +35,13 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           <ProductVisual name={product.name} category={product.category} colours={product.variants.map((v) => v.options.colour ?? v.name)} image={product.image} rounded="rounded-3xl" />
           {credit ? (
             <figcaption className="mt-2 text-xs text-muted-foreground">
-              <a href={credit.href} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">
-                {credit.text}
-              </a>
+              {credit.href ? (
+                <a href={credit.href} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">
+                  {credit.text}
+                </a>
+              ) : (
+                credit.text
+              )}
             </figcaption>
           ) : null}
         </figure>
