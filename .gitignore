@@ -5,6 +5,7 @@ node_modules/
 # builds
 .next/
 .next-e2e/
+.next-demo/
 out/
 dist/
 build/
@@ -41,3 +42,16 @@ Thumbs.db
 
 # Image-import search cache (pnpm market:images)
 /.cache/
+
+# demo video media (uploaded to YouTube, not kept in git)
+demo-video/*.mp4
+demo-video/*.wav
+demo-video/*.mp3
+demo-video/clips/
+# hackathon article assets (published on Medium, not kept in git)
+docs/article/
+
+# private working notes (kept locally, not published)
+/CLAUDE.md
+docs/HACKATHON.md
+docs/ARTICLE_DRAFT.md

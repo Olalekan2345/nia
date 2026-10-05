@@ -142,6 +142,6 @@ Delegate key, bot token and API keys are server-only. Namespaces are derived on 
 
 ## Docs
 
-[Architecture](docs/ARCHITECTURE.md) · [Commerce agent](docs/COMMERCE_AGENT.md) · [Walrus Memory](docs/WALRUS.md) · [Memory model](docs/MEMORY_MODEL.md) · [Telegram](docs/TELEGRAM.md) · [Security](docs/SECURITY.md) · [Deployment](docs/DEPLOYMENT.md) · [Hackathon](docs/HACKATHON.md) · [Article draft](docs/ARTICLE_DRAFT.md)
+[Architecture](docs/ARCHITECTURE.md) · [Commerce agent](docs/COMMERCE_AGENT.md) · [Walrus Memory](docs/WALRUS.md) · [Memory model](docs/MEMORY_MODEL.md) · [Telegram](docs/TELEGRAM.md) · [Security](docs/SECURITY.md) · [Deployment](docs/DEPLOYMENT.md)
 
 Demo stores (Adire Lane, Glow Theory Studio, Crumb & Co.) are fictional businesses for trying Nia.
