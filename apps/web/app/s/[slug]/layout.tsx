@@ -2,8 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Badge } from "@nia/ui";
+import { departmentForBusinessType } from "@nia/shared";
 import { cartLineCountForAccount, getDraft, orderSummary } from "@nia/commerce";
 import { CartLink } from "@/components/market/cart-link";
+import { ShopMarketBar } from "@/components/store/shop-market-bar";
+import { StoreHeaderExtras } from "@/components/store/store-header-extras";
 import { StoreBottomNav, StoreTopNav } from "@/components/store/store-nav";
 import { MerchantMark } from "@/components/store/merchant-mark";
 import { getStorefront } from "@/lib/storefront";
@@ -27,6 +30,9 @@ export default async function StoreLayout({ children, params }: { children: Reac
   }
   // The one cart across every shop (this shop's items included).
   const allCartCount = user ? await cartLineCountForAccount(db(), { userId: user.id, telegramUserId: user.telegramUserId }) : 0;
+  // Every live shop is listed in Walrus Market, under its department.
+  const inMarket = merchant.status === "live";
+  const department = departmentForBusinessType(merchant.businessType);
 
   return (
     <div className="min-h-dvh" style={{ ["--merchant" as string]: merchant.accentColor }}>
@@ -38,14 +44,7 @@ export default async function StoreLayout({ children, params }: { children: Reac
           </Link>
           <StoreTopNav slug={slug} />
           <div className="flex items-center gap-2">
-            <Link href="/market" className="hidden rounded-full px-3 py-1.5 text-xs font-semibold text-muted-foreground transition-colors duration-150 hover:bg-ink-900/[0.04] hover:text-foreground lg:inline">
-              Walrus Market
-            </Link>
-            {merchant.isDemo ? (
-              <Badge tone="neutral" className="hidden sm:inline-flex">
-                Demo store
-              </Badge>
-            ) : null}
+            <StoreHeaderExtras slug={slug} inMarket={inMarket} isDemo={merchant.isDemo} />
             {merchant.status !== "live" && isMember ? <Badge tone="warning">Preview</Badge> : null}
             <CartLink count={allCartCount} />
           </div>
@@ -54,6 +53,7 @@ export default async function StoreLayout({ children, params }: { children: Reac
       {merchant.isDemo ? (
         <p className="border-b border-ink-900/[0.06] bg-paper px-4 py-1.5 text-center text-xs text-muted-foreground sm:hidden">Demo store — fictional business for trying Nia</p>
       ) : null}
+      {inMarket ? <ShopMarketBar slug={slug} shopName={merchant.name} department={department ? { label: department.short, href: `/market?dept=${department.key}` } : null} /> : null}
       <div className="pb-24 md:pb-10">{children}</div>
       <StoreBottomNav slug={slug} cartCount={cartCount} />
     </div>

@@ -10,6 +10,7 @@ import { DepartmentCard } from "@/components/market/department-card";
 import { MarketProductCard, toMarketCard } from "@/components/market/market-card";
 import { QuickAdd } from "@/components/market/quick-add";
 import { Rail, RailItem } from "@/components/market/rail";
+import { MarketWayfinder } from "@/components/market/market-wayfinder";
 import { MerchantMark } from "@/components/store/merchant-mark";
 import { forYou, greeting, loadMarket, marketMemories } from "@/lib/market";
 import { userFirstName } from "@/lib/user";
@@ -349,11 +350,14 @@ export default async function MarketPage({ searchParams }: { searchParams: Promi
       {/* Browsing: a department, collection, search or filter */}
       {tab === "all" && browsing ? (
         <section aria-labelledby="products" className="space-y-4">
-          {dept || collection ? (
-            <Link href="/market" className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="size-4" aria-hidden="true" /> All departments
-            </Link>
-          ) : null}
+          <MarketWayfinder
+            trail={[
+              ...(dept ? [{ label: dept.short, href: `/market?dept=${dept.key}` }] : []),
+              ...(collection ? [{ label: collection.name, href: `/market?col=${collection.key}` }] : []),
+              ...(q || (!dept && !collection) ? [{ label: heading }] : []),
+            ]}
+            note={dept ? `You're in the ${dept.short} section of Walrus Market.` : "You're browsing Walrus Market."}
+          />
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h1 id="products" className="text-[clamp(1.6rem,3vw,2.2rem)] leading-tight font-extrabold tracking-[-0.03em] text-balance">

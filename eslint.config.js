@@ -5,7 +5,7 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 
 export default tseslint.config(
   {
-    ignores: ["**/node_modules/**", "**/.next/**", "**/.next-e2e/**", "**/dist/**", ".data/**", "**/next-env.d.ts", "playwright-report/**", "test-results/**", "packages/database/migrations/**"],
+    ignores: ["**/node_modules/**", "**/.next/**", "**/.next-e2e/**", "**/.next-demo/**", "**/dist/**", ".data/**", "**/next-env.d.ts", "playwright-report/**", "test-results/**", "packages/database/migrations/**"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
