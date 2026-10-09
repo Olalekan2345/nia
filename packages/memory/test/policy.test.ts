@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { classifyCandidate } from "../src/policy";
-import { canonicalSubject, ExtractionResultSchema, type MemoryCandidate } from "../src/schema";
+import { canonicalSubject, ExtractionResultSchema, normalizeCandidate, type MemoryCandidate } from "../src/schema";
 import { buildRecallQuery, isForgetOrCorrectIntent, isForgetRequest, isRepeatIntent, shouldExtract } from "../src/recall-query";
 import { composeMemoryText } from "../src/statement";
 
@@ -123,6 +123,21 @@ describe("extraction schema", () => {
     expect(canonicalSubject("color")).toBe("colour_preference");
     expect(canonicalSubject("size")).toBe("clothing_size");
     expect(canonicalSubject("wedding_date")).toBe("wedding_date");
+  });
+
+  it("keeps facts about other people off the customer's own keys", () => {
+    const wife = candidate({ type: "SIZE_OR_VARIANT", subject: "clothing_size", value: "12", label: "Wife's size: 12", statement: "Customer's wife is a size 12." });
+    expect(normalizeCandidate(wife).subject).toBe("wife_clothing_size");
+    const mum = candidate({ subject: "favourite_colour", value: "lilac", label: "Mum’s colour: lilac", statement: "Customer's mother loves lilac." });
+    expect(normalizeCandidate(mum).subject).toBe("mum_colour_preference");
+    const sister = candidate({ subject: "colour_preference", value: "lilac", label: "Sister's colour: lilac", statement: "Customer's sister's favourite colour is lilac." });
+    expect(normalizeCandidate(sister).subject).toBe("sister_colour_preference");
+    const byStatement = candidate({ subject: "shoe_size", value: "42", label: "Shoe size: 42", statement: "Customer's husband wears shoe size 42." });
+    expect(normalizeCandidate(byStatement).subject).toBe("husband_shoe_size");
+    // The customer's own facts — even when the sentence mentions someone else — keep their keys.
+    expect(normalizeCandidate(candidate()).subject).toBe("colour_preference");
+    expect(normalizeCandidate(candidate({ statement: "Customer prefers darker colours, also when shopping for her mum." })).subject).toBe("colour_preference");
+    expect(normalizeCandidate(candidate({ type: "RELATIONSHIP_CONTEXT", subject: "gift_recipient", label: "Shopping for wife", statement: "Customer's wife is who they shop for." })).subject).toBe("gift_recipient");
   });
 });
 

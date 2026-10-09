@@ -738,6 +738,8 @@ export function ToolParts({ parts, actions, latest = true, asked }: { parts: Too
   const nodes: React.ReactNode[] = [];
   const hasSummary = parts.some((p) => p.type === "tool-showOrderSummary" && p.state === "output-available" && p.output?.ok);
   const lastCart = [...parts].reverse().find((p) => CART_TOOLS.has(p.type.slice(5)) && p.state === "output-available" && p.output?.ok);
+  // Once this reply has started the cart from the order, "Same quantity?" has already been answered.
+  const reordered = parts.some((p) => p.type === "tool-createDraftOrder" && p.state === "output-available" && p.output?.ok && p.input?.fromOrderId);
   // If the model re-planned within one reply, only its final basket is shown.
   const lastBasket = [...parts].reverse().find((p) => p.type === "tool-planBasket" && p.state === "output-available" && p.output?.ok);
   let signInShown = false;
@@ -851,7 +853,7 @@ export function ToolParts({ parts, actions, latest = true, asked }: { parts: Too
         const repeat = o.repeat as { status: string; orderId?: string } | undefined;
         const orders = (o.orders as OrderSummaryData[]) ?? [];
         const target = repeat?.status === "single" ? orders.find((x) => x.id === repeat.orderId) : null;
-        if (target && !hasSummary) nodes.push(<RepeatChoices key={p.toolCallId} order={target} actions={actions} />);
+        if (target && !hasSummary && !reordered) nodes.push(<RepeatChoices key={p.toolCallId} order={target} actions={actions} />);
         break;
       }
       default:

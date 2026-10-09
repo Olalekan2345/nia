@@ -485,6 +485,8 @@ export interface ReorderResult {
   unavailable: string[];
   /** The same lines, structured — for finding alternatives. */
   unavailableItems: { name: string; productId: string | null; variantId: string | null; quantity: number }[];
+  /** The open cart was already started from this order — nothing was added again. */
+  alreadyInCart?: boolean;
 }
 
 /** "Same as last time": copy a previous order's lines into the cart at today's prices and stock. */
@@ -495,6 +497,13 @@ export async function reorderToDraft(
   const [source] = await db.select().from(orders).where(and(eq(orders.id, orderId), eq(orders.merchantId, merchantId), eq(orders.customerId, customerId)));
   if (!source) throw new AppError("NOT_FOUND", "Previous order not found");
   const items = await db.select().from(orderItems).where(eq(orderItems.orderId, source.id));
+  // Repeating the same order twice ("Same quantity" after the cart was already started) must not double it.
+  const open = await getDraft(db, merchantId, customerId);
+  if (open?.repeatOfOrderId === source.id) {
+    const inCart = await db.select().from(orderItems).where(eq(orderItems.orderId, open.id));
+    const has = (i: (typeof items)[number]) => !i.productId || inCart.some((c) => c.productId === i.productId && c.variantId === i.variantId);
+    if (items.every(has)) return { summary: await orderSummary(db, merchantId, open.id), added: [], unavailable: [], unavailableItems: [], alreadyInCart: true };
+  }
   const added: string[] = [];
   const unavailable: string[] = [];
   const unavailableItems: ReorderResult["unavailableItems"] = [];

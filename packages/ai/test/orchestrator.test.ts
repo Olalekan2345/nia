@@ -214,8 +214,12 @@ describe("flagship memory scenario", () => {
     const t1 = await turn(tgCustomer, "Can I get the same kind of thing as last time?", { channel: "telegram" });
     const tgTexts = t1.prepared.scope.recalled.customer.map((m) => m.text).join("\n");
     expect(tgTexts).toMatch(/Midnight Linen Kaftan \(Black \/ M\)/);
-    const orders = (await shopTools(t1.prepared).getCustomerRecentOrders.execute!({}, { toolCallId: "x", messages: [], context: {} as never })) as { ok: true; orders: OrderSummaryData[]; repeat: { status: string } };
+    const orders = (await shopTools(t1.prepared).getCustomerRecentOrders.execute!({}, { toolCallId: "x", messages: [], context: {} as never })) as { ok: true; orders: OrderSummaryData[]; repeat: { status: string }; deliveryNow?: string };
     expect(orders.repeat.status).toBe("single");
+    // She moved after that Lekki order: the repeat goes to Yaba, from the recalled memory.
+    if (t1.prepared.scope.recalled.customer.some((m) => !m.historical && m.record?.subjectKey === "usual_delivery_area")) {
+      expect(orders.deliveryNow).toMatch(/Yaba.*last order went to Lekki/);
+    }
     expect(t1.prepared.system).toContain("Telegram");
   });
 

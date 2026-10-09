@@ -122,11 +122,11 @@ export function modelOutput(tool: string, output: unknown): R {
     case "getMyOrders":
       return { ok: true, orders: arr(o.orders).map((x) => drop({ shop: ((x.shop ?? {}) as R).name, ...compactCart(x), deliveryPolicy: s(x.deliveryPolicy, 300) })) };
     case "getCustomerRecentOrders":
-      return drop({ ok: true, orders: arr(o.orders).slice(0, 5).map(compactCart), repeat: o.repeat, bookings: o.bookings, repeatBooking: o.repeatBooking });
+      return drop({ ok: true, orders: arr(o.orders).slice(0, 5).map(compactCart), repeat: o.repeat, deliveryNow: o.deliveryNow, bookings: o.bookings, repeatBooking: o.repeatBooking });
     case "getOrder":
       return { ok: true, order: compactCart((o.order ?? {}) as R) };
     case "createDraftOrder":
-      return drop({ ok: true, cart: compactCart((o.cart ?? {}) as R), added: o.added, unavailable: o.unavailable, alternatives: arr(o.alternatives).length ? arr(o.alternatives).map((a) => ({ for: a.for, options: compactAlternatives(a.options) })) : undefined });
+      return drop({ ok: true, cart: compactCart((o.cart ?? {}) as R), added: o.added, unavailable: o.unavailable, note: o.note, alternatives: arr(o.alternatives).length ? arr(o.alternatives).map((a) => ({ for: a.for, options: compactAlternatives(a.options) })) : undefined });
     case "addItemToDraft":
     case "updateDraftItem":
     case "removeDraftItem":

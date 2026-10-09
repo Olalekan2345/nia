@@ -9,7 +9,7 @@
  */
 import { generateText, Output, type LanguageModel } from "ai";
 import { z } from "zod";
-import { CANONICAL_SUBJECTS, ExtractionResultSchema, MemoryCandidateSchema, normalizeCandidateType, type MemoryCandidate, type RecalledMemory } from "@nia/memory";
+import { CANONICAL_SUBJECTS, ExtractionResultSchema, MemoryCandidateSchema, normalizeCandidate, type MemoryCandidate, type RecalledMemory } from "@nia/memory";
 import { redactSensitive } from "@nia/shared";
 import type { Merchant } from "@nia/database";
 import { buildExtractionPrompt } from "./prompts";
@@ -53,7 +53,7 @@ export function coerceCandidates(raw: unknown): MemoryCandidate[] {
       evidence: typeof c.evidence === "string" && c.evidence ? c.evidence : String(c.statement ?? ""),
       label: typeof c.label === "string" && c.label ? c.label : String(c.value ?? "").slice(0, 80),
     });
-    if (parsed.success) out.push(normalizeCandidateType(parsed.data));
+    if (parsed.success) out.push(normalizeCandidate(parsed.data));
   }
   return out;
 }
@@ -126,7 +126,7 @@ Extract memory candidates from the customer's latest message (use the rest only 
     logUsage(result.usage);
     const parsed = ExtractionResultSchema.safeParse(result.output);
     if (!parsed.success) return { candidates: [], error: "Extraction output failed validation" };
-    return { candidates: parsed.data.candidates.map(normalizeCandidateType) };
+    return { candidates: parsed.data.candidates.map(normalizeCandidate) };
   } catch (err) {
     return { candidates: [], error: (err as Error).message.slice(0, 200) };
   }

@@ -3,7 +3,7 @@
  * summaries with inline keyboards. Callback data stays under Telegram's
  * 64-byte limit.
  */
-import { DEMO_PAYMENT_NOTE, formatMoney, formatPriceRange, INVENTORY_LABELS, orderProgress } from "@nia/shared";
+import { DEMO_PAYMENT_NOTE, formatMoney, formatPriceRange, INVENTORY_LABELS, orderProgress, stripMemoryRefs } from "@nia/shared";
 import type { BookingSummaryData, OrderSummaryData, ProductCardData, ServiceCardData } from "@nia/commerce";
 import type { Merchant } from "@nia/database";
 import type { InlineKeyboardMarkup } from "./types";
@@ -20,7 +20,7 @@ export function quote(text: string, max = 160): string {
 
 /** Model output → Telegram HTML: escape everything, then allow **bold** / *bold* only. */
 export function toTelegramHtml(text: string): string {
-  return escapeHtml(text)
+  return escapeHtml(stripMemoryRefs(text))
     .replace(/\*\*([^*\n]+)\*\*/g, "<b>$1</b>")
     .replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,!?:;]|$)/g, "$1<b>$2</b>")
     .replace(/^#{1,6}\s+/gm, "")

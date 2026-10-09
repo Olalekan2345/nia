@@ -7,6 +7,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { ArrowUp, CircleAlert, MessageCircle, Plus, RotateCcw, Send, ShieldOff, Sparkles, Square } from "lucide-react";
 import { Button, Mascot, cn, type MascotState } from "@nia/ui";
+import { stripMemoryRefs } from "@nia/shared";
 import type { MemoryReceiptView, NiaDataParts, NiaUIMessage } from "@nia/ai";
 import { addToCartAction, cancelBookingAction, confirmBookingAction, confirmOrderAction, resolveConsentAction } from "@/app/actions/store";
 import { Markdown } from "./markdown";
@@ -462,11 +463,12 @@ function AssistantMessage({
   const recall = partsOf(message, "recall");
   const memory = partsOf(message, "memory");
   const notice = partsOf(message, "notice");
-  const text = parts
-    .filter((p) => p.type === "text")
-    .map((p) => p.text ?? "")
-    .join("\n\n")
-    .trim();
+  const text = stripMemoryRefs(
+    parts
+      .filter((p) => p.type === "text")
+      .map((p) => p.text ?? "")
+      .join("\n\n"),
+  ).trim();
   const tools = parts.filter((p) => p.type.startsWith("tool-")) as unknown as ToolPart[];
 
   return (

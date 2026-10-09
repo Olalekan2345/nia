@@ -30,6 +30,11 @@ export function slugify(input: string): string {
     .slice(0, 48);
 }
 
+/** Internal memory refs ("[M3]", "[B1]") are for tools only — never show them to a customer. */
+export function stripMemoryRefs(text: string): string {
+  return text.replace(/ ?\[(?:M|B)\d{1,3}\](?:\s?,\s?\[(?:M|B)\d{1,3}\])*/g, "");
+}
+
 export function truncate(text: string, max: number): string {
   if (text.length <= max) return text;
   return `${text.slice(0, Math.max(0, max - 1)).trimEnd()}…`;

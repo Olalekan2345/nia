@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { namedProduct } from "../src";
+import { namedProduct, stripMemoryRefs } from "../src";
 
 const cakes = [
   { id: "1", name: "Celebration Cake" },
@@ -22,5 +22,13 @@ describe("namedProduct", () => {
     expect(namedProduct(cakes, ["Do you have cakes for a birthday?", "cake"])).toBeNull();
     expect(namedProduct(cakes, ["Celebration Cakes please"])).toBeNull();
     expect(namedProduct(cakes, [undefined, ""])).toBeNull();
+  });
+});
+
+describe("stripMemoryRefs", () => {
+  it("removes internal memory refs from customer-facing text", () => {
+    expect(stripMemoryRefs("Since you're shopping for her [M3] and both of you love lilac")).toBe("Since you're shopping for her and both of you love lilac");
+    expect(stripMemoryRefs("You wear Medium [M1], [M2] and like black [B1].")).toBe("You wear Medium and like black.");
+    expect(stripMemoryRefs("Size M (Medium) — [Mum's gift]")).toBe("Size M (Medium) — [Mum's gift]");
   });
 });

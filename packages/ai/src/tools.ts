@@ -179,11 +179,28 @@ export function createNiaTools(scope: NiaToolScope) {
           if (scope.memoryMode === "off") return fail("Customer history is unavailable in memory-off mode.", "MEMORY_OFF");
           const [orders, bookings] = await Promise.all([getCustomerRecentOrders(db, m, customerId, limit ?? 5), getCustomerBookings(db, m, customerId, 5)]);
           const past = bookings.filter((b) => b.status !== "draft");
+          // Moved since the last order? Repeat it to where they live now (the recalled Walrus memory says where).
+          const isArea = (r: { historical: boolean; record: { subjectKey: string } | null }) => !r.historical && r.record?.subjectKey === "usual_delivery_area";
+          const lastArea = orders[0]?.deliveryArea;
+          let area = scope.recalled.customer.find(isArea);
+          if (!area && lastArea && scope.store && scope.customerMemoryEnabled) {
+            // Pre-turn recall ranks the order itself first; ask Walrus for the current area directly.
+            const found = await recallCustomerMemory(db, scope.store, { merchantId: m, customerId, query: "Customer's usual delivery area", limit: 3 }).catch(() => []);
+            const hit = found.find(isArea);
+            if (hit) {
+              area = { ...hit, ref: `M${scope.recalled.customer.length + 1}` };
+              scope.recalled.customer.push(area);
+            }
+          }
+          // Compare with the record's current value (server-side only); the model gets the Walrus sentence.
+          const areaNow = area?.record?.label.split(":").slice(1).join(":").trim().toLowerCase();
+          const deliveryNow = area && areaNow && lastArea && !areaNow.includes(lastArea.toLowerCase()) ? `${area.text} The last order went to ${lastArea}; repeat it to the current area unless they say otherwise.` : undefined;
           return {
             ok: true as const,
             count: orders.length,
             orders,
             repeat: resolveRepeatOrder(orders),
+            ...(deliveryNow ? { deliveryNow } : {}),
             ...(past.length
               ? {
                   bookings: past.map((b) => ({ id: b.id, service: b.serviceName, serviceId: b.serviceId, options: b.selectedOptions, startAt: b.startAt, status: b.status })),
@@ -224,7 +241,7 @@ export function createNiaTools(scope: NiaToolScope) {
                 result.unavailableItems.filter((u) => u.productId).map(async (u) => ({ for: u.name, quantity: u.quantity, options: await alternativesFor(scope, [m], u.productId!, u.variantId) })),
               )
             ).filter((a) => a.options.length);
-            return { ok: true as const, cart: result.summary, added: result.added, unavailable: result.unavailable, ...(alternatives.length ? { alternatives } : {}) };
+            return { ok: true as const, cart: result.summary, added: result.added, unavailable: result.unavailable, ...(result.alreadyInCart ? { note: "This order is already in the cart, same quantities — nothing added again." } : {}), ...(alternatives.length ? { alternatives } : {}) };
           }
           const draft = await getOrCreateDraft(db, { merchantId: m, customerId, channel: scope.channel, conversationId: scope.conversationId });
           return { ok: true as const, cart: await orderSummary(db, m, draft.id) };

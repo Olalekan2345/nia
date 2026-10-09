@@ -51,6 +51,7 @@ export const CANONICAL_SUBJECTS: Record<string, string> = {
   shoe_size: "Shoe size",
   colour_preference: "Colours the customer prefers",
   colour_avoidance: "Colours the customer avoids",
+  material_avoidance: "Materials or fabrics the customer avoids (e.g. no lace)",
   usual_delivery_area: "Area/neighbourhood orders are usually delivered to",
   fulfilment_preference: "Delivery vs pickup preference",
   delivery_time_preference: "Preferred delivery time or day",
@@ -128,6 +129,50 @@ export function normalizeCandidateType(c: MemoryCandidate): MemoryCandidate {
   const subject = canonicalSubject(c.subject);
   if (!(subject in CANONICAL_SUBJECTS)) return c;
   return { ...c, type: CANONICAL_SUBJECT_TYPES[subject] ?? "CUSTOMER_PREFERENCE" };
+}
+
+/** Keys that describe the customer themselves — a fact about someone else must never take them. */
+const PERSONAL_SUBJECTS = new Set([
+  "clothing_size",
+  "shoe_size",
+  "colour_preference",
+  "colour_avoidance",
+  "material_preference",
+  "material_avoidance",
+  "style_preference",
+  "preferred_brand",
+  "preferred_variant",
+  "allergy_or_sensitivity",
+  "dietary_preference",
+]);
+const OTHER_PEOPLE: Record<string, string> = {
+  wife: "wife", husband: "husband", partner: "partner", fiance: "fiance", fiancee: "fiancee", boyfriend: "boyfriend", girlfriend: "girlfriend",
+  mum: "mum", mom: "mum", mother: "mum", dad: "dad", father: "dad", sister: "sister", brother: "brother", son: "son", daughter: "daughter",
+  baby: "baby", child: "child", kids: "kids", aunt: "aunt", uncle: "uncle", niece: "niece", nephew: "nephew", cousin: "cousin",
+  grandma: "grandma", grandmother: "grandma", grandpa: "grandpa", grandfather: "grandpa", friend: "friend", boss: "boss", colleague: "colleague",
+};
+const PERSON = Object.keys(OTHER_PEOPLE).join("|");
+/** "Wife's size: 12" / "Mum’s favourite colour" — the label names someone else's attribute. */
+const LABEL_OTHER = new RegExp(`^(?:my |her |his |their )?(${PERSON})(?:'s|’s)\\b`, "i");
+/** "Customer's wife wears size 12." — the statement is about someone else. */
+const STATEMENT_OTHER = new RegExp(`^(?:the )?(?:customer(?:'s|’s)|their|his|her) (${PERSON})(?:'s|’s)? `, "i");
+
+/**
+ * Facts about the people a customer shops for ("my wife is a size 12") get their
+ * own subject ("wife_clothing_size"), so they never supersede the customer's own
+ * size or colours. Models often reuse the customer's canonical key for them.
+ */
+export function scopeSubjectToPerson(c: MemoryCandidate): MemoryCandidate {
+  const subject = canonicalSubject(c.subject);
+  if (!PERSONAL_SUBJECTS.has(subject)) return c;
+  const who = (LABEL_OTHER.exec(c.label.trim()) ?? STATEMENT_OTHER.exec(c.statement.trim()))?.[1]?.toLowerCase();
+  const person = who ? OTHER_PEOPLE[who] : undefined;
+  return person ? { ...c, subject: `${person}_${subject}` } : c;
+}
+
+/** Everything extraction output goes through before the policy sees it. */
+export function normalizeCandidate(c: MemoryCandidate): MemoryCandidate {
+  return normalizeCandidateType(scopeSubjectToPerson(c));
 }
 
 export function canonicalSubject(subject: string): string {

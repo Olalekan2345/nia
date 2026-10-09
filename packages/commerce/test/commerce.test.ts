@@ -158,6 +158,12 @@ describe("cart and orders", () => {
     expect(again.added).toEqual(["1 × Midnight Linen Kaftan (Black / M)"]);
     expect(again.summary.memoryAssisted).toBe(true);
     expect(again.summary.status).toBe("draft");
+
+    // Repeating the same order again ("Same quantity" after the cart was started) never doubles it.
+    const twice = await reorderToDraft(db, { merchantId: fabricShop.id, customerId: customer.id, orderId: first.id, channel: "web" });
+    expect(twice.alreadyInCart).toBe(true);
+    expect(twice.added).toEqual([]);
+    expect(twice.summary.items.map((i) => i.quantity)).toEqual([1]);
   });
 });
 
