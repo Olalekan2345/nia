@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Check, GitCompareArrows, Plus, X } from "lucide-react";
 import { buttonClasses, cn } from "@nia/ui";
 import { COMPARE_MAX, useCompare } from "./compare-store";
@@ -26,10 +28,15 @@ export function CompareToggle({ productId, className }: { productId: string; cla
   );
 }
 
-/** Floating bar once something is selected. */
+/** Floating bar once something is selected. Opening the comparison uses the selection up, so the bar goes away. */
 export function CompareTray() {
   const compare = useCompare();
-  if (compare.ids.length === 0) return null;
+  const onComparePage = usePathname() === "/market/compare";
+  const { ids, clear } = compare;
+  useEffect(() => {
+    if (onComparePage && ids.length) clear();
+  }, [onComparePage, ids.length, clear]);
+  if (ids.length === 0 || onComparePage) return null;
   const ready = compare.ids.length >= 2;
   return (
     <div className="fixed inset-x-0 bottom-4 z-40 flex justify-center px-4" role="region" aria-label="Compare selection">

@@ -222,6 +222,12 @@ test("comparison shows real specs and says when one isn't listed", async ({ page
   const weight = table.locator("tr", { has: page.getByRole("rowheader", { name: /Weight/ }) });
   await expect(weight).toContainText("1.15 kg");
   await expect(weight).toContainText("Not listed");
+  // Comparing uses the selection up: the floating tray is gone here and back on the market.
+  const tray = page.getByRole("region", { name: "Compare selection" });
+  await expect(tray).toHaveCount(0);
+  await page.goBack();
+  await expect(page.locator("article").first()).toBeVisible();
+  await expect(tray).toHaveCount(0);
 });
 
 test("a photo that fails to load falls back to artwork, never a broken image", async ({ page }) => {
